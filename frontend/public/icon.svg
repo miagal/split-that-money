@@ -1,0 +1,6 @@
+<!-- Application icon used by the PWA manifest and browser chrome. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="16" fill="#277055" />
+  <path d="M18 22h28v20H18z" fill="#fffefa" />
+  <path d="M18 28h28M26 18v28M38 18v28" fill="none" stroke="#277055" stroke-width="4" stroke-linecap="round" />
+</svg>

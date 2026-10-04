@@ -1,0 +1,38 @@
+/* Defines semantic light and dark theme values shared by every application surface. */
+:root[data-theme='light'] {
+  color-scheme: light;
+  --color-surface: 255 255 255;
+  --color-surface-raised: 255 254 250;
+  --color-foreground: 24 55 44;
+  --color-muted: 111 123 115;
+  --color-border: 225 229 219;
+  --color-accent: 39 112 85;
+  --color-accent-contrast: 255 255 255;
+  --color-danger: 184 87 68;
+  --color-chart: 39 112 85;
+  --color-chart-1: 39 112 85;
+  --color-chart-2: 211 163 92;
+  --color-chart-3: 184 87 68;
+  --color-chart-4: 109 140 196;
+  --color-chart-5: 155 115 178;
+  --color-chart-6: 125 143 133;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --color-surface: 20 23 27;
+  --color-surface-raised: 27 48 39;
+  --color-foreground: 232 240 233;
+  --color-muted: 174 185 176;
+  --color-border: 53 80 69;
+  --color-accent: 128 199 161;
+  --color-accent-contrast: 20 23 27;
+  --color-danger: 230 137 117;
+  --color-chart: 128 199 161;
+  --color-chart-1: 128 199 161;
+  --color-chart-2: 229 190 112;
+  --color-chart-3: 230 137 117;
+  --color-chart-4: 145 171 225;
+  --color-chart-5: 193 155 214;
+  --color-chart-6: 157 181 168;
+}

@@ -1,0 +1,82 @@
+{
+    # IP-address clients omit SNI, so select the configured IP certificate.
+    default_sni {$APP_HOST}
+
+    # Phones install this root CA; root_cn is the label in device settings.
+    pki {
+        ca local {
+            name "Split That Money"
+            root_cn "Split That Money"
+            intermediate_cn "Split That Money Intermediate"
+        }
+    }
+}
+
+# Exposes only first-device setup resources over HTTP; application and API traffic remain HTTPS-only.
+http://{$APP_HOST}:{$HTTP_PORT} {
+    root * /data/caddy/pki/authorities/local
+
+    handle /offline_setup {
+        header Content-Type "text/html; charset=utf-8"
+        respond <<HTML
+        <!doctype html>
+        <html lang="en">
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>Offline setup</title>
+          </head>
+          <body>
+            <main>
+              <h1>Offline setup</h1>
+              <p>Continue setup over HTTPS before adding the app to your Home Screen.</p>
+              <p><a href="https://{$APP_HOST}:{$HTTPS_PORT}/offline_setup">Open HTTPS offline setup</a></p>
+            </main>
+          </body>
+        </html>
+        HTML 200
+    }
+
+    handle /caddy-root.crt {
+        rewrite * /root.crt
+        header Content-Disposition "attachment; filename=caddy-root.crt"
+        file_server
+    }
+
+    handle {
+        respond "Not found" 404
+    }
+}
+
+# Serve the PWA over local HTTPS and forward API requests to Django.
+https://{$APP_HOST}:{$HTTPS_PORT} {
+    # Sign directly with the trusted local root because iOS rejects Caddy's intermediate chain on this private LAN.
+    tls {
+        issuer internal {
+            sign_with_root
+        }
+    }
+    encode zstd gzip
+
+    # Vite fingerprints files below /assets/, so they are safe to retain indefinitely.
+    handle /assets/* {
+        root /srv
+        header Cache-Control "public, max-age=31536000, immutable"
+        file_server
+    }
+
+    handle /api/* {
+        reverse_proxy backend:8000
+    }
+
+    handle /caddy-root.crt {
+        redir http://{$APP_HOST}:{$HTTP_PORT}/caddy-root.crt
+    }
+
+    handle {
+        root /srv
+        header Cache-Control "no-cache"
+        try_files {path} /index.html
+        file_server
+    }
+}

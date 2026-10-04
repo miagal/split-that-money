@@ -1,0 +1,8 @@
+django
+djangorestframework
+pytest
+pytest-django
+regex
+pydantic-settings
+python-dotenv
+gunicorn

@@ -1,0 +1,2 @@
+/* Keeps the Vite entrypoint stable while global styles live in their own module. */
+@import './styles/index.css';

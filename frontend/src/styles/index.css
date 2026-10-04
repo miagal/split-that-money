@@ -1,0 +1,299 @@
+/* Imports semantic tokens and supplies the minimal reset shared by all routes. */
+@import './tokens.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  overscroll-behavior-x: none;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100svh;
+  margin: 0;
+  background-color: rgb(var(--color-surface));
+  color: rgb(var(--color-foreground));
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+:where(a, button, input, select, textarea):focus-visible {
+  outline: 2px solid rgb(var(--color-accent));
+  outline-offset: 2px;
+}
+
+#root {
+  min-height: 100svh;
+}
+
+.dialog-surface {
+  width: min(32rem, calc(100vw - 2rem));
+  margin: auto;
+  padding: 0;
+  color: rgb(var(--color-foreground));
+  background: rgb(var(--color-surface-raised));
+  border: 1px solid rgb(var(--color-border));
+  border-radius: 1rem;
+  box-shadow: 0 1.5rem 4rem rgb(var(--color-foreground) / 0.24);
+}
+
+.dialog-surface::backdrop {
+  background: rgb(var(--color-foreground) / 0.35);
+}
+
+.app-shell:has(.dialog-surface[open]) .app-scroll-region {
+  overflow-y: hidden;
+}
+
+.pull-to-reload {
+  position: relative;
+}
+
+.pull-to-reload-indicator {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: rgb(var(--color-accent));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease-out;
+}
+
+.pull-to-reload-indicator--pulling,
+.pull-to-reload-indicator--ready {
+  opacity: 1;
+}
+
+.pull-to-reload-indicator--ready {
+  height: 5px;
+}
+
+.dialog-surface,
+.dialog-surface .os-viewport {
+  overscroll-behavior-y: contain;
+}
+
+@media (max-width: 767px) {
+  button.fixed.bottom-4.right-4.size-11 {
+    right: 1.125rem;
+  }
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 0.75rem 1.5rem max(0.75rem, env(safe-area-inset-bottom));
+  background: rgb(var(--color-surface-raised));
+  border-top: 1px solid rgb(var(--color-border));
+}
+
+.icon-picker-popover {
+  position: fixed;
+  z-index: 20;
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  background: rgb(var(--color-surface-raised));
+  border: 1px solid rgb(var(--color-border));
+  border-radius: 0.75rem;
+  box-shadow: 0 0.75rem 2rem rgb(var(--color-foreground) / 0.18);
+}
+
+.swipe-reveal-track {
+  position: relative;
+  overflow: hidden;
+}
+
+.swipe-reveal-content {
+  position: relative;
+  transition: transform 160ms ease-out;
+}
+
+.swipe-reveal-track[data-revealed='true'] .swipe-reveal-content {
+  transform: translateX(-4.5rem);
+}
+
+.swipe-reveal-action {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 4.5rem;
+}
+
+@media (max-width: 767px) {
+  .swipe-reveal-content {
+    touch-action: pan-y;
+  }
+
+  .dialog-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
+  }
+}
+
+@keyframes toast-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.toast-enter {
+  animation: toast-enter 160ms ease-out both;
+}
+
+@keyframes list-enter {
+  from {
+    opacity: 0;
+    transform: translateY(0.25rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.list-enter {
+  animation: list-enter 500ms ease-out both;
+}
+
+.empty-state {
+  @apply rounded-xl border border-dashed border-border p-5 text-muted;
+}
+
+/* Safari date controls ignore column width unless appearance is reset. */
+input[type='date'] {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  width: 0;
+  min-width: 100%;
+  max-width: 100%;
+  line-height: normal;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+input[type='date']::-webkit-date-and-time-value,
+input[type='date']::-webkit-datetime-edit,
+input[type='date']::-webkit-datetime-edit-fields-wrapper {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  overflow: hidden;
+  line-height: normal;
+}
+
+input[type='date']::-webkit-calendar-picker-indicator {
+  margin: 0;
+  padding: 0;
+  width: 1rem;
+  height: 1rem;
+}
+
+/* Square icon-only control on mobile; icon plus visible label from the md breakpoint. */
+.icon-label-button {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+}
+
+.icon-label-button > span {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .icon-label-button {
+    width: auto;
+    height: 2.5rem;
+    padding: 0 1rem;
+    gap: 0.5rem;
+  }
+
+  .icon-label-button > span {
+    display: inline;
+  }
+}
+
+@keyframes account-menu-email-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(var(--account-menu-email-shift));
+  }
+}
+
+.account-menu-email-track {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.account-menu-email-marquee {
+  display: inline-block;
+  animation: account-menu-email-marquee 3s ease-in-out 700ms infinite alternate;
+}
+
+.account-menu-email-track:hover .account-menu-email-marquee,
+.account-menu-email-track:focus .account-menu-email-marquee {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pull-to-reload-indicator {
+    transition: none;
+  }
+
+  .toast-enter {
+    animation: none;
+  }
+
+  .account-menu-email-marquee {
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

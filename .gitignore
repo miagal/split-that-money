@@ -1,0 +1,9 @@
+.env
+demo-credentials.local.md
+backups/
+
+# Local git worktrees
+.worktrees/
+
+# Local agent session state and mockups
+.superpowers/

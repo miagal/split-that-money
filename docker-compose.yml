@@ -1,0 +1,65 @@
+# Update these three values for the NAS that runs this stack.
+x-app-host: &app_host "192.168.178.110"
+x-http-port: &http_port "8080"
+x-https-port: &https_port "8443"
+
+services:
+  backend:
+    container_name: stm-backend
+    build:
+      context: .
+      dockerfile: ./backend/Dockerfile
+    # env_file: .env
+    environment:
+      DATABASE_NAME: /data/split_that_money.sqlite3
+      LOG_LEVEL: "INFO"
+      DJANGO_SECRET_KEY: "change-this-secret-key-in-production"
+      # Shared public values let Django derive its allowed host and CSRF origin.
+      APP_HOST: *app_host
+      HTTPS_PORT: *https_port
+      SESSION_COOKIE_SECURE: "true"
+      CSRF_COOKIE_SECURE: "true"
+      # Days a server sign-in stays valid; offline data survives expiry and syncs after the same user signs in again.
+      SESSION_COOKIE_AGE_DAYS: "30"
+      # Seconds the installed React Gui app waits for the server before starting from its cached shell.
+      SHELL_NETWORK_TIMEOUT_SECONDS: "3"
+      # Seconds one GUI sync request waits before aborting so Syncing cannot hang.
+      SYNC_REQUEST_TIMEOUT_SECONDS: "8"
+    volumes:
+      - backend_data:/data
+      - backend_logs:/app/app/logs
+    restart: unless-stopped
+
+  frontend:
+    container_name: stm-frontend
+    build:
+      context: .
+      dockerfile: ./caddy/Dockerfile
+    depends_on:
+      - backend
+    environment:
+      # Fixed IP address of the device running this Compose stack.
+      APP_HOST: *app_host
+      # Public PWA port; it is part of the installed app's URL.
+      HTTPS_PORT: *https_port
+      # Public HTTP port for first-device setup and certificate download.
+      HTTP_PORT: *http_port
+    ports:
+      # Publish the configured HTTPS port unchanged inside the frontend container.
+      - target: *https_port
+        published: *https_port
+        protocol: tcp
+      # Publish the configured HTTP bootstrap port unchanged inside the frontend container.
+      - target: *http_port
+        published: *http_port
+        protocol: tcp
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+
+volumes:
+  backend_data:
+  backend_logs:
+  caddy_data:
+  caddy_config:
