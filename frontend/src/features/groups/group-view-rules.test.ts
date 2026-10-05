@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { ApiError } from '../../api/client.ts'
 import {
   currentTabLabel,
   groupErrorKind,
@@ -8,6 +9,7 @@ import {
   outgoingTransfersForUser,
   transfersForUser,
   isOutgoingTransferForUser,
+  shouldDiscardCachedGroup,
   shouldShowGroupLoadingPlaceholder,
 } from './group-view-rules.ts'
 
@@ -117,7 +119,39 @@ test('latest activity caps globally ordered mixed events after excluding deleted
 test('distinguishes inaccessible, missing, and recoverable group loads', () => {
   assert.equal(groupErrorKind(404), 'missing')
   assert.equal(groupErrorKind(403), 'forbidden')
+  assert.equal(groupErrorKind(403, 'not_authenticated'), 'recoverable')
+  assert.equal(groupErrorKind(401), 'recoverable')
   assert.equal(groupErrorKind(503), 'recoverable')
+})
+
+test('keeps a cached group when the session expired or the server is unreachable', () => {
+  assert.equal(
+    shouldDiscardCachedGroup(
+      new ApiError(403, 'not_authenticated', 'Authentication required.'),
+    ),
+    false,
+  )
+  assert.equal(
+    shouldDiscardCachedGroup(new ApiError(401, 'not_authenticated', 'Nope.')),
+    false,
+  )
+  assert.equal(
+    shouldDiscardCachedGroup(new TypeError('Failed to fetch')),
+    false,
+  )
+})
+
+test('discards a cached group only when the server confirms it is forbidden or missing', () => {
+  assert.equal(
+    shouldDiscardCachedGroup(
+      new ApiError(403, 'permission_denied', 'You do not have access.'),
+    ),
+    true,
+  )
+  assert.equal(
+    shouldDiscardCachedGroup(new ApiError(404, 'not_found', 'Gone.')),
+    true,
+  )
 })
 
 test('keeps zero balances neutral', () => {

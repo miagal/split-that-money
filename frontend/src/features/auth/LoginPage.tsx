@@ -39,6 +39,7 @@ export function LoginPage() {
     pendingChanges,
     cacheEpoch,
     cachedSessionAllowed,
+    sessionExpired,
   } = useAuth()
   const toast = useToast()
   const toastRef = useRef(toast)
@@ -56,7 +57,8 @@ export function LoginPage() {
   const [pending, setPending] = useState(0)
   const [confirmSignOut, setConfirmSignOut] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
-  const resumeUser = cachedSessionAllowed ? cachedUser : null
+  const resumeUser =
+    cachedSessionAllowed && !sessionExpired ? cachedUser : null
 
   useEffect(() => {
     toastRef.current = toast

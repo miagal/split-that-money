@@ -15,7 +15,11 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import type { GroupDto } from '../../api/contracts.ts'
-import { ApiError, isTransportFailure } from '../../api/client.ts'
+import {
+  ApiError,
+  isNotAuthenticated,
+  isTransportFailure,
+} from '../../api/client.ts'
 import { useAuth, useSyncActions } from '../../app/providers.tsx'
 import { groupIconComponent, type IconComponent } from '../../lib/icons.ts'
 import { fetchGroup } from './group-api.ts'
@@ -24,6 +28,7 @@ import {
   currentTabLabel,
   desktopSidebarClass,
   groupErrorKind,
+  shouldDiscardCachedGroup,
   shouldShowGroupLoadingPlaceholder,
 } from './group-view-rules.ts'
 import { canStartInitialGroupSync } from '../sync/sync.ts'
@@ -97,7 +102,10 @@ function GroupLayoutContent({ id }: { id: string }) {
           .catch(() => undefined)
       }
     } catch (reason) {
-      if (offlineCacheAvailable && isTransportFailure(reason)) {
+      if (
+        offlineCacheAvailable &&
+        (isTransportFailure(reason) || isNotAuthenticated(reason))
+      ) {
         try {
           const store = await openMoneyStore()
           try {
@@ -119,10 +127,7 @@ function GroupLayoutContent({ id }: { id: string }) {
       if (requestGeneration !== loadGeneration.current) return
       // A warm local shell stays up unless the server confirms the group is gone or forbidden.
       if (paintedFromCache) {
-        if (
-          reason instanceof ApiError &&
-          (reason.status === 403 || reason.status === 404)
-        ) {
+        if (shouldDiscardCachedGroup(reason)) {
           setGroup(null)
           setError(reason)
         }
@@ -228,6 +233,7 @@ function GroupError({
 }) {
   const kind = groupErrorKind(
     error instanceof ApiError ? error.status : undefined,
+    error instanceof ApiError ? error.code : undefined,
   )
   return (
     <section className="mx-auto max-w-md p-8 text-center">

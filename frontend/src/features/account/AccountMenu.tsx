@@ -172,13 +172,14 @@ export function AccountMenu({ user }: AccountMenuProps) {
             <Button variant="secondary" onClick={dismissSessionExpiredNotice}>
               Later
             </Button>
-            <Button onClick={signInAgain}>Sign in</Button>
+            <Button onClick={signInAgain}>Re-login</Button>
           </>
         }
       >
         <p>
-          Your changes are safe on this device. Sign in again as {user.email} to
-          sync them with the server.
+          Your changes are safe on this device. Sign in again as{' '}
+          <span className="font-bold">{user.email}</span> to sync them with the
+          server.
         </p>
       </Dialog>
       <button
@@ -193,11 +194,14 @@ export function AccountMenu({ user }: AccountMenuProps) {
         <span className="relative grid h-10 w-10 place-items-center rounded-full border border-border bg-surface leading-none text-accent">
           {initials}
           {sessionExpired ? (
-            <Skull
+            <span
+              className="absolute -bottom-1 -right-1 grid size-5 place-items-center rounded-full border-2 border-surface-raised bg-danger text-accent-contrast"
+              role="status"
               aria-label="Session expired"
-              size={12}
-              className="absolute -bottom-1 -right-1 text-danger"
-            />
+              title="Session expired"
+            >
+              <Skull aria-hidden size={12} />
+            </span>
           ) : (
             <span
               className={`absolute -bottom-1 -right-1 grid size-5 place-items-center rounded-full border-2 border-surface-raised bg-surface-raised ${statusClass}`}
@@ -243,45 +247,41 @@ export function AccountMenu({ user }: AccountMenuProps) {
               )}
             </span>
           </p>
-          {sessionExpired && (
-            <button
-              className="flex w-full items-start gap-2 border-b border-border py-3 text-left text-sm text-danger"
-              type="button"
-              onClick={signInAgain}
+          {sessionExpired ? (
+            <div className="flex w-full justify-start border-b border-border py-3">
+              <span className="inline-flex items-center gap-1.5 rounded-full border-[0.5px] border-current px-2 py-0.5 font-medium text-danger">
+                <Skull aria-hidden size={15} />
+                Session expired
+              </span>
+            </div>
+          ) : (
+            <div
+              className={`flex w-full flex-col gap-0.5 border-b border-border pt-3 text-left text-sm ${pendingLabel ? 'pb-0.5' : 'pb-3'}`}
             >
-              <Skull aria-hidden size={16} className="mt-0.5 shrink-0" />
-              <span>
-                <span className="block font-semibold">Session expired.</span>
-                <span className="text-muted">
-                  Sign in again to sync your data with the server.
+              <span className="flex w-full items-center justify-between gap-2">
+                <span className="text-base font-medium">Sync status</span>
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-full border-[0.5px] border-current px-2 py-0.5 font-medium ${statusClass}`}
+                >
+                  <StatusIcon
+                    aria-hidden
+                    size={15}
+                    className={
+                      presentation.icon === 'refresh'
+                        ? 'animate-spin'
+                        : undefined
+                    }
+                  />
+                  {presentation.label}
                 </span>
               </span>
-            </button>
+              {pendingLabel && (
+                <span className="w-full text-right text-xs text-muted">
+                  {pendingLabel}
+                </span>
+              )}
+            </div>
           )}
-          <div
-            className={`flex w-full flex-col gap-0.5 border-b border-border pt-3 text-left text-sm ${pendingLabel ? 'pb-0.5' : 'pb-3'}`}
-          >
-            <span className="flex w-full items-center justify-between gap-2">
-              <span className="text-base font-medium">Sync status</span>
-              <span
-                className={`inline-flex items-center gap-1.5 rounded-full border-[0.5px] border-current px-2 py-0.5 font-medium ${statusClass}`}
-              >
-                <StatusIcon
-                  aria-hidden
-                  size={15}
-                  className={
-                    presentation.icon === 'refresh' ? 'animate-spin' : undefined
-                  }
-                />
-                {presentation.label}
-              </span>
-            </span>
-            {pendingLabel && (
-              <span className="w-full text-right text-xs text-muted">
-                {pendingLabel}
-              </span>
-            )}
-          </div>
           <div className="flex items-center justify-between py-3 text-sm">
             <span className="text-base font-medium">Dark mode</span>
             <Switch
@@ -316,10 +316,10 @@ export function AccountMenu({ user }: AccountMenuProps) {
           <button
             className="flex w-full items-center gap-2 border-t border-border pt-3 text-left text-base font-medium text-danger"
             type="button"
-            onClick={signOut}
+            onClick={sessionExpired ? signInAgain : signOut}
           >
             <LogOut aria-hidden size={16} />
-            Log out
+            {sessionExpired ? 'Re-login' : 'Log out'}
           </button>
         </div>
       )}

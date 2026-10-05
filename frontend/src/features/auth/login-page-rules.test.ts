@@ -31,6 +31,7 @@ function loginHarness(
     getPublicConfig?: () => Promise<{ ALLOW_SELF_REGISTRATION: boolean }>
     login?: () => Promise<UserDto>
     cachedSessionAllowed?: boolean
+    sessionExpired?: boolean
     signOutOnDevice?: () => Promise<void>
     pending?: number
     storePending?: number
@@ -119,6 +120,7 @@ function loginHarness(
     '../../app/providers.tsx': {
       useAuth: () => ({
         cachedSessionAllowed: options.cachedSessionAllowed ?? true,
+        sessionExpired: options.sessionExpired ?? false,
         login: async () => {
           logins += 1
           return options.login ? options.login() : cachedUser
@@ -316,6 +318,24 @@ test('offers a cached account even when the browser has a network but the server
   assert.match(online, /Continue/)
   assert.match(online, /Sign out/)
   assert.equal(online.includes("You're offline."), false)
+})
+
+test('an expired session shows the password form with the cached email', async () => {
+  const page = loginHarness({
+    online: true,
+    cachedUser,
+    sessionExpired: true,
+  })
+  const shownPage = await shown(page)
+  const text = content(shownPage)
+  assert.match(text, /Sign in/)
+  assert.equal(text.includes('Continue'), false)
+  assert.equal(text.includes('Saved account'), false)
+  const email = nodes(shownPage).find(
+    (node) => node.type === 'input' && node.props.type === 'email',
+  )
+  assert.ok(email)
+  assert.equal(email.props.value, cachedUser.email)
 })
 
 test('continue restores the cached session and leaves login', async () => {

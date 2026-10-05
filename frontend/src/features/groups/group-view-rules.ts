@@ -1,4 +1,5 @@
 // Provides pure presentation and state rules shared by group route components.
+import { ApiError, isNotAuthenticated } from '../../api/client.ts'
 import type {
   ExpenseDto,
   SettlementDto,
@@ -129,12 +130,37 @@ export function currentTabLabel(
   return groupTabs.find((tab) => tab.path === path)?.label ?? 'Overview'
 }
 
+/**
+ * Classifies a failed group fetch for the error view.
+ *
+ * An expired session is recoverable: the cookie is dead, not group membership.
+ *
+ * @param status - HTTP status from the failed fetch, when one exists.
+ * @param code - Backend error code; `not_authenticated` is not access denied.
+ * @returns Which group-error copy to show.
+ */
 export function groupErrorKind(
   status: number | undefined,
+  code?: string,
 ): 'missing' | 'forbidden' | 'recoverable' {
   if (status === 404) return 'missing'
+  if (status === 403 && code === 'not_authenticated') return 'recoverable'
   if (status === 403) return 'forbidden'
   return 'recoverable'
+}
+
+/**
+ * Decides whether a failed group fetch should tear down a warm local shell.
+ *
+ * @param error - The failure from the network revalidation.
+ * @returns True only when the server confirms the group is gone or forbidden.
+ */
+export function shouldDiscardCachedGroup(error: unknown): boolean {
+  return (
+    error instanceof ApiError &&
+    !isNotAuthenticated(error) &&
+    (error.status === 403 || error.status === 404)
+  )
 }
 
 export function balanceLabel(cents: number | null): string {

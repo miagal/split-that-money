@@ -199,32 +199,46 @@ test('an expired session shows the skull badge, menu notice and a one-time modal
     { is_staff: false, is_superuser: false },
     { sessionExpired: true },
   )
-  assert.ok(
-    nodes(menu.render()).some(
-      (node) => node.props['aria-label'] === 'Session expired',
-    ),
+  const skullBadge = nodes(menu.render()).find(
+    (node) => node.props['aria-label'] === 'Session expired',
   )
+  assert.ok(skullBadge)
+  assert.match(String(skullBadge.props.className), /size-5/)
+  assert.match(String(skullBadge.props.className), /-bottom-1/)
+  assert.match(String(skullBadge.props.className), /-right-1/)
+  assert.match(String(skullBadge.props.className), /rounded-full/)
   assert.ok(
     nodes(menu.render()).some(
       (node) =>
         node.props.title === 'Session expired' && node.props.open === true,
     ),
   )
+  const expiredEmail = nodes(menu.render()).find(
+    (node) => content(node) === user.email,
+  )
+  assert.ok(expiredEmail)
+  assert.match(String(expiredEmail.props.className), /font-bold/)
   nodes(menu.render())
     .find((node) => node.props['aria-label'] === 'Open account menu')!
     .props.onClick()
-  const expiredNotice = nodes(menu.render()).find(
+  const openMenu = nodes(menu.render())
+  assert.equal(
+    openMenu.some((node) => content(node) === 'Sync status'),
+    false,
+  )
+  const expiredPill = openMenu.find(
     (node) =>
-      node.type === 'button' &&
-      content(node).includes(
-        'Sign in again to sync your data with the server.',
-      ),
+      content(node) === 'Session expired' &&
+      String(node.props.className ?? '').includes('rounded-full'),
   )
-  assert.ok(expiredNotice)
-  assert.match(
-    content(expiredNotice),
-    /^Session expired\.Sign in again to sync your data with the server\.$/,
+  assert.ok(expiredPill)
+  assert.match(String(expiredPill.props.className), /text-danger/)
+  const expiredRow = openMenu.find(
+    (node) =>
+      String(node.props.className ?? '').includes('justify-start') &&
+      nodes(node).includes(expiredPill),
   )
+  assert.ok(expiredRow)
   const later = nodes(menu.render()).find((node) => content(node) === 'Later')
   assert.ok(later)
   later.props.onClick()
@@ -244,16 +258,44 @@ test('an expired session shows the skull badge, menu notice and a one-time modal
   )
 })
 
-test('Sign in from the expired notice leaves to login', () => {
+test('Re-login from the expired notice leaves to login', () => {
   const menu = menuHarness(
     { is_staff: false, is_superuser: false },
     { sessionExpired: true },
   )
-  const signIn = nodes(menu.render()).find(
-    (node) => content(node) === 'Sign in',
+  const reLogin = nodes(menu.render()).find(
+    (node) => content(node) === 'Re-login',
   )
-  assert.ok(signIn)
-  signIn.props.onClick()
+  assert.ok(reLogin)
+  reLogin.props.onClick()
+  assert.deepEqual(menu.authCalls, ['leaveToLogin'])
+  assert.deepEqual(menu.navigations, ['/login'])
+})
+
+test('an expired session replaces Log out with Re-login', async () => {
+  const menu = menuHarness(
+    { is_staff: false, is_superuser: false },
+    { sessionExpired: true },
+  )
+  nodes(menu.render())
+    .find((node) => content(node) === 'Later')!
+    .props.onClick()
+  nodes(menu.render())
+    .find((node) => node.props['aria-label'] === 'Open account menu')!
+    .props.onClick()
+  const rendered = nodes(menu.render())
+  assert.equal(
+    rendered.some((node) => content(node) === 'Log out'),
+    false,
+  )
+  const reLogin = rendered.find(
+    (node) =>
+      node.type === 'button' &&
+      content(node) === 'Re-login' &&
+      String(node.props.className ?? '').includes('border-t'),
+  )
+  assert.ok(reLogin)
+  await reLogin.props.onClick()
   assert.deepEqual(menu.authCalls, ['leaveToLogin'])
   assert.deepEqual(menu.navigations, ['/login'])
 })
