@@ -24,3 +24,19 @@ export function nextVisibleExpenseCount(
 ): number {
   return Math.min(visibleCount + EXPENSE_PAGE_SIZE, totalCount)
 }
+
+/**
+ * Orders expenses newest calendar date first, then newest update on the same day.
+ *
+ * @param expenses - Local expense rows that expose `date` and `updated_at`.
+ * @returns A new array; older `date` stays below even when `updated_at` is later.
+ */
+export function sortExpensesForList<
+  T extends { date: string; updated_at: string },
+>(expenses: T[]): T[] {
+  return [...expenses].sort(
+    (a, b) =>
+      b.date.localeCompare(a.date) ||
+      b.updated_at.localeCompare(a.updated_at),
+  )
+}

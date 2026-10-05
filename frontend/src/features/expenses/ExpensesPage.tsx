@@ -39,6 +39,7 @@ import {
   expenseListEntryClass,
   expenseListState,
   nextVisibleExpenseCount,
+  sortExpensesForList,
 } from './expense-list-rules.ts'
 import { isNestedInteractiveTarget, useSwipeReveal } from './swipe-reveal.ts'
 
@@ -113,7 +114,7 @@ export function ExpensesPage() {
     (membership) => membership.is_active && membership.user.id === session?.id,
   )
   const sortedExpenses = useMemo(
-    () => [...expenses].sort((a, b) => b.date.localeCompare(a.date)),
+    () => sortExpensesForList(expenses),
     [expenses],
   )
   const visibleExpenses = sortedExpenses.slice(0, visibleExpenseCount)
