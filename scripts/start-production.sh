@@ -46,12 +46,49 @@ validate_deployment_values() {
   fi
 }
 
+# Prints this host's current global IPv4 addresses. Linux uses iproute2; macOS uses ifconfig.
+list_active_ipv4() {
+  case "$(uname -s)" in
+    Darwin)
+      ifconfig -a inet | awk '/inet / && $2 !~ /^127\./ && $2 !~ /^169\.254\./ { print $2 }'
+      ;;
+    *)
+      ip -4 -o addr show up scope global | awk '{ split($4, address, "/"); print address[1] }'
+      ;;
+  esac
+}
+
+# Stops before Docker runs when a required host tool is missing.
+require_host_commands() {
+  local command
+  for command in docker curl openssl cmp; do
+    command -v "$command" >/dev/null || {
+      echo "Required command is not available: $command" >&2
+      exit 2
+    }
+  done
+  case "$(uname -s)" in
+    Darwin)
+      command -v ifconfig >/dev/null || {
+        echo "Required command is not available: ifconfig" >&2
+        exit 2
+      }
+      ;;
+    *)
+      command -v ip >/dev/null || {
+        echo "Required command is not available: ip" >&2
+        exit 2
+      }
+      ;;
+  esac
+}
+
 # Stops before startup when Compose points at another device; changing it would also change the PWA origin.
 verify_host_address() {
-  if ! ip -4 -o addr show up scope global | awk '{ split($4, address, "/"); print address[1] }' | grep -Fx -- "$app_host" >/dev/null; then
+  if ! list_active_ipv4 | grep -Fx -- "$app_host" >/dev/null; then
     echo "Configured x-app-host ($app_host) is not assigned to this host." >&2
     echo "Update x-app-host in docker-compose.yml to one of this host's active IPv4 addresses:" >&2
-    ip -4 -o addr show up scope global | awk '{ split($4, address, "/"); print "  " address[1] }' >&2
+    list_active_ipv4 | awk '{ print "  " $1 }' >&2
     exit 1
   fi
 }
@@ -110,14 +147,8 @@ app_host=$(read_compose_value x-app-host)
 http_port=$(read_compose_value x-http-port)
 https_port=$(read_compose_value x-https-port)
 validate_deployment_values
+require_host_commands
 verify_host_address
-
-for command in docker ip curl openssl cmp; do
-  command -v "$command" >/dev/null || {
-    echo "Required command is not available: $command" >&2
-    exit 2
-  }
-done
 
 temporary_directory=$(mktemp -d)
 root_certificate="$temporary_directory/root.crt"
