@@ -176,6 +176,10 @@ function loginHarness(
         (async () => ({ ALLOW_SELF_REGISTRATION: false })),
       register: async () => undefined,
     },
+    'lucide-react': {
+      LogIn: () => null,
+      LogOut: () => null,
+    },
     '../sync/database.ts': {
       openMoneyStore: async (storeOptions?: {
         allowDuringTransition?: boolean
@@ -293,29 +297,31 @@ test('offers a cached account even when the browser has a network but the server
   const offline = content(
     await shown(loginHarness({ online: false, cachedUser })),
   )
-  assert.match(offline, /Split That Money/)
+  assert.match(offline, /split that money/)
   assert.match(offline, /Welcome back/)
   assert.match(offline, /You're offline\. Your groups stay on this device\./)
   assert.match(offline, /AE/)
   assert.match(offline, /Alex Example/)
   assert.match(offline, /alex@example.com/)
-  assert.match(offline, /Continue as Alex/)
-  assert.match(offline, /Sign out on this device/)
+  assert.match(offline, /Continue/)
+  assert.match(offline, /Sign out/)
+  assert.equal(offline.includes('Saved account'), false)
   assert.equal(offline.includes('Sign in'), false)
 
   const online = content(
     await shown(loginHarness({ online: true, cachedUser })),
   )
-  assert.match(online, /Sign in/)
-  assert.match(online, /Continue as Alex/)
-  assert.match(online, /Sign out on this device/)
+  assert.equal(online.includes('Sign in'), false)
+  assert.match(online, /Saved account/)
+  assert.match(online, /Continue/)
+  assert.match(online, /Sign out/)
   assert.equal(online.includes("You're offline."), false)
 })
 
 test('continue restores the cached session and leaves login', async () => {
   const page = loginHarness({ online: false, cachedUser })
   const button = nodes(await shown(page)).find(
-    (node) => node.type === 'button' && content(node) === 'Continue as Alex',
+    (node) => node.type === 'button' && content(node) === 'Continue',
   )
   assert.ok(button)
   await button.props.onClick()
@@ -327,13 +333,16 @@ test('device sign-out drops the resume card and shows the password form', async 
   const page = loginHarness({ online: false, cachedUser })
   const signOut = nodes(await shown(page)).find(
     (node) =>
-      node.type === 'button' && content(node) === 'Sign out on this device',
+      node.type === 'button' && content(node) === 'Sign out',
   )
   assert.ok(signOut)
   assert.match(String(signOut.props.className), /text-danger/)
   await signOut.props.onClick()
   const confirm = nodes(page.render()).find(
-    (node) => node.type === 'button' && content(node) === 'Sign out',
+    (node) =>
+      node.type === 'button' &&
+      content(node) === 'Sign out' &&
+      node.props.children === 'Sign out',
   )
   assert.ok(confirm)
   await confirm.props.onClick()
@@ -347,45 +356,31 @@ test('device sign-out drops the resume card and shows the password form', async 
   assert.equal(page.deviceSignOuts, 1)
 })
 
-test('prefills the cached email in the password form', async () => {
-  const rendered = await shown(
-    loginHarness({
-      online: true,
-      cachedUser,
-      pendingCountError: new Error('pending count failed'),
-    }),
+test('prefills the cached email in the password form after device sign-out', async () => {
+  const page = loginHarness({
+    online: true,
+    cachedUser,
+    pendingCountError: new Error('pending count failed'),
+  })
+  const signOut = nodes(await shown(page)).find(
+    (node) => node.type === 'button' && content(node) === 'Sign out',
   )
-  assert.match(content(rendered), /Continue as Alex/)
-  const email = nodes(rendered).find(
+  assert.ok(signOut)
+  await signOut.props.onClick()
+  const confirm = nodes(page.render()).find(
+    (node) =>
+      node.type === 'button' &&
+      content(node) === 'Sign out' &&
+      node.props.children === 'Sign out',
+  )
+  assert.ok(confirm)
+  await confirm.props.onClick()
+  await settle()
+  const email = nodes(page.render()).find(
     (node) => node.type === 'input' && node.props.type === 'email',
   )
   assert.ok(email)
   assert.equal(email.props.value, cachedUser.email)
-})
-
-test('blocks sign-in as another email while changes are pending', async () => {
-  const page = loginHarness({
-    online: true,
-    cachedUser,
-    pending: 2,
-    storePending: 0,
-  })
-  const email = nodes(await shown(page)).find(
-    (node) => node.type === 'input' && node.props.type === 'email',
-  )
-  assert.ok(email)
-  email.props.onChange({ target: { value: 'blair@example.com' } })
-  const form = nodes(page.render()).find((node) => node.type === 'form')
-  assert.ok(form)
-  await form.props.onSubmit({ preventDefault() {} })
-  assert.equal(page.logins, 0)
-  assert.deepEqual(page.messages, [
-    {
-      kind: 'error',
-      message:
-        'Unsynced changes from alex@example.com are still on this device. Sign in as that account, or sign out on this device first.',
-    },
-  ])
 })
 
 test('sign out on this device asks for confirmation naming pending changes', async () => {
@@ -396,8 +391,7 @@ test('sign out on this device asks for confirmation naming pending changes', asy
     storePending: 0,
   })
   const signOut = nodes(await shown(page)).find(
-    (node) =>
-      node.type === 'button' && content(node) === 'Sign out on this device',
+    (node) => node.type === 'button' && content(node) === 'Sign out',
   )
   assert.ok(signOut)
   await signOut.props.onClick()
@@ -409,7 +403,10 @@ test('sign out on this device asks for confirmation naming pending changes', asy
     /2 unsynced changes will be deleted\. This cannot be undone\./,
   )
   const confirmButton = nodes(confirm).find(
-    (node) => node.type === 'button' && content(node) === 'Sign out',
+    (node) =>
+      node.type === 'button' &&
+      content(node) === 'Sign out' &&
+      node.props.children === 'Sign out',
   )
   assert.ok(confirmButton)
   await confirmButton.props.onClick()
@@ -423,7 +420,7 @@ test('a signed-out device never offers its stale cached identity', async () => {
     cachedSessionAllowed: false,
   })
   const text = content(await shown(page))
-  assert.equal(text.includes('Continue as Alex'), false)
+  assert.equal(text.includes('Continue'), false)
   assert.equal(text.includes('alex@example.com'), false)
   assert.match(text, /Sign in/)
 })
@@ -437,13 +434,15 @@ test('a storage-clear failure is reported without an unhandled sign-out rejectio
     },
   })
   const button = nodes(await shown(page)).find(
-    (node) =>
-      node.type === 'button' && content(node) === 'Sign out on this device',
+    (node) => node.type === 'button' && content(node) === 'Sign out',
   )
   assert.ok(button)
   await button.props.onClick()
   const confirm = nodes(page.render()).find(
-    (node) => node.type === 'button' && content(node) === 'Sign out',
+    (node) =>
+      node.type === 'button' &&
+      content(node) === 'Sign out' &&
+      node.props.children === 'Sign out',
   )
   assert.ok(confirm)
   await confirm.props.onClick()
@@ -452,12 +451,13 @@ test('a storage-clear failure is reported without an unhandled sign-out rejectio
   assert.equal(page.messages[0].kind, 'error')
 })
 
-test('coming back online keeps the saved account and adds the password form', async () => {
+test('coming back online keeps the saved account without the password form', async () => {
   const page = loginHarness({ online: false, cachedUser })
-  assert.match(content(await shown(page)), /Continue as Alex/)
+  assert.match(content(await shown(page)), /Continue/)
   page.setOnline(true)
-  assert.match(content(page.render()), /Continue as Alex/)
-  assert.match(content(page.render()), /Sign in/)
+  const text = content(page.render())
+  assert.match(text, /Continue/)
+  assert.equal(text.includes('Sign in'), false)
 })
 
 test('offline sign-in asks for a connection and does not call login', async () => {

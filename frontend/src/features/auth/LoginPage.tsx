@@ -1,12 +1,10 @@
 // Renders the standalone public authentication screen, optional self-registration, and the offline cached-identity card.
 import { type FormEvent, useEffect, useRef, useState } from 'react'
+import { LogIn, LogOut } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { isTransportFailure } from '../../api/client.ts'
 import type { UserDto } from '../../api/contracts.ts'
-import {
-  blocksAccountSwitch,
-  continueAsLabel,
-} from '../../app/auth-boot-rules.ts'
+import { blocksAccountSwitch } from '../../app/auth-boot-rules.ts'
 import { useAuth } from '../../app/providers.tsx'
 import { nextPathForSession } from '../../app/router-rules.ts'
 import { ConfirmDialog } from '../../components/ConfirmDialog.tsx'
@@ -201,12 +199,24 @@ export function LoginPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-svh max-w-md items-center p-6">
-      <section className="w-full rounded-2xl border border-border bg-surface-raised p-7 shadow-sm">
-        <p className="text-sm font-bold text-accent">Split That Money</p>
-        {resumeUser && (
+    <main className="mx-auto flex min-h-svh items-center justify-center px-8 py-6 sm:p-6">
+      <div className="relative w-full max-w-md">
+        <div className="absolute right-full top-0 mr-1 flex flex-col items-center gap-0.5">
+          <img
+            src="/icon.svg"
+            alt=""
+            width={28}
+            height={28}
+            className="size-7 -rotate-90 rounded-lg"
+          />
+          <p className="whitespace-nowrap text-sm font-bold text-accent [writing-mode:sideways-lr]">
+            split that money
+          </p>
+        </div>
+        <section className="w-full rounded-2xl border border-border bg-surface-raised p-5 shadow-sm sm:p-7">
+        {resumeUser ? (
           <>
-            <h1 className="mt-6 text-3xl font-bold tracking-tight">
+            <h1 className="text-2xl font-bold tracking-tight">
               Welcome back
             </h1>
             <p className="mt-2 text-muted">
@@ -228,31 +238,30 @@ export function LoginPage() {
                 </p>
               </div>
             </div>
-            <div className="mt-6 grid gap-3">
+            <div className="mt-6 grid grid-cols-2 gap-3">
               <button
-                className="rounded-lg bg-accent px-4 py-2 font-semibold text-accent-contrast"
-                type="button"
-                onClick={continueOffline}
-              >
-                {continueAsLabel(resumeUser)}
-              </button>
-              <button
-                className="text-left font-semibold text-danger"
+                className="flex items-center justify-center gap-2 rounded-lg border border-border px-4 py-2 font-semibold text-danger"
                 type="button"
                 onClick={() => setConfirmSignOut(true)}
               >
-                Sign out on this device
+                <LogOut aria-hidden size={16} />
+                Sign out
+              </button>
+              <button
+                className="flex items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2 font-semibold text-accent-contrast"
+                type="button"
+                onClick={continueOffline}
+              >
+                <LogIn aria-hidden size={16} strokeWidth={2.5} />
+                Continue
               </button>
             </div>
           </>
-        )}
-        {(!resumeUser || online) && (
+        ) : (
           <>
-            {!resumeUser && (
-              <h1 className="mt-6 text-3xl font-bold tracking-tight">
-                {showRegistration ? 'Create an account' : 'Welcome back'}
-              </h1>
-            )}
+            <h1 className="text-2xl font-bold tracking-tight">
+              {showRegistration ? 'Create an account' : 'Welcome back'}
+            </h1>
             <p className="mt-2 text-muted">
               {showRegistration
                 ? 'Create an account for your shared groups.'
@@ -318,9 +327,10 @@ export function LoginPage() {
                   }}
                 />
                 <button
-                  className="rounded-lg bg-accent px-4 py-2 font-semibold text-accent-contrast"
+                  className="flex items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2 font-semibold text-accent-contrast"
                   type="submit"
                 >
+                  <LogIn aria-hidden size={16} strokeWidth={2.5} />
                   Sign in
                 </button>
               </form>
@@ -336,7 +346,8 @@ export function LoginPage() {
             )}
           </>
         )}
-      </section>
+        </section>
+      </div>
       <ConfirmDialog
         open={confirmSignOut}
         title="Sign out on this device?"
