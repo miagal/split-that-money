@@ -261,8 +261,12 @@ export function GroupsPage() {
           <p className="mt-1 text-muted">Shared money, kept simple.</p>
         </div>
         {online && (
-          <Button onClick={() => setDialogOpen(true)} disabled={!canCreate}>
-            <Plus aria-hidden size={19} className="mr-2 inline" />
+          <Button
+            className="gap-2 !px-3"
+            onClick={() => setDialogOpen(true)}
+            disabled={!canCreate}
+          >
+            <Plus aria-hidden size={19} />
             New group
           </Button>
         )}

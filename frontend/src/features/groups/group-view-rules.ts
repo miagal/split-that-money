@@ -37,7 +37,7 @@ export function mobileTabClass(
 
 /** Returns the shared three-column layout for a navigable group-list row. */
 export function groupListRowClass(): string {
-  return 'grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-border bg-surface-raised p-4 transition hover:border-accent hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent'
+  return 'grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-border bg-surface-raised p-4 md:transition md:hover:border-accent md:hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent'
 }
 
 /** Returns the desktop-only visual state for a route-backed group tab. */
