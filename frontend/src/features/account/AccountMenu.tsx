@@ -3,7 +3,9 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import {
   Check,
   CloudOff,
+  LogOut,
   RefreshCw,
+  Settings,
   Skull,
   TriangleAlert,
   Upload,
@@ -20,6 +22,7 @@ import { canAccessAdmin } from '../../app/router-rules.ts'
 import {
   shouldAnimateOverflow,
   shouldCloseAccountMenu,
+  syncPendingLabel,
   syncPresentation,
 } from './account-menu-rules.ts'
 import { Switch } from '../../components/Switch.tsx'
@@ -75,10 +78,7 @@ export function AccountMenu({ user }: AccountMenuProps) {
         : presentation.tone === 'danger'
           ? 'text-danger'
           : 'text-muted'
-  const pendingLabel =
-    pendingChanges === 1
-      ? '1 change waiting to sync'
-      : `${pendingChanges} changes waiting to sync`
+  const pendingLabel = syncPendingLabel(syncStatus, pendingChanges)
 
   useEffect(() => {
     if (!open) return
@@ -258,29 +258,32 @@ export function AccountMenu({ user }: AccountMenuProps) {
               </span>
             </button>
           )}
-          <div className="flex items-center justify-between gap-3 border-b border-border py-3 text-sm">
-            <span className="text-muted">Sync status</span>
-            <span
-              className={`flex items-center gap-1.5 text-right font-semibold ${statusClass}`}
-            >
-              <StatusIcon
-                aria-hidden
-                size={15}
-                className={
-                  presentation.icon === 'refresh' ? 'animate-spin' : undefined
-                }
-              />
-              {presentation.label}
+          <div
+            className={`flex w-full flex-col gap-0.5 border-b border-border pt-3 text-left text-sm ${pendingLabel ? 'pb-0.5' : 'pb-3'}`}
+          >
+            <span className="flex w-full items-center justify-between gap-2">
+              <span className="text-base font-medium">Sync status</span>
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full border-[0.5px] border-current px-2 py-0.5 font-medium ${statusClass}`}
+              >
+                <StatusIcon
+                  aria-hidden
+                  size={15}
+                  className={
+                    presentation.icon === 'refresh' ? 'animate-spin' : undefined
+                  }
+                />
+                {presentation.label}
+              </span>
             </span>
-          </div>
-          {pendingChanges > 0 &&
-            presentation.label !== 'Changes waiting to sync' && (
-              <p className="border-b border-border pb-3 text-right text-xs text-muted">
+            {pendingLabel && (
+              <span className="w-full text-right text-xs text-muted">
                 {pendingLabel}
-              </p>
+              </span>
             )}
-          <div className="flex items-center justify-between py-3">
-            <span>Dark mode</span>
+          </div>
+          <div className="flex items-center justify-between py-3 text-sm">
+            <span className="text-base font-medium">Dark mode</span>
             <Switch
               checked={theme === 'dark'}
               aria-label="Toggle dark mode"
@@ -288,18 +291,19 @@ export function AccountMenu({ user }: AccountMenuProps) {
             />
           </div>
           <button
-            className="w-full border-t border-border py-3 text-left font-semibold"
+            className="flex w-full items-center gap-2 border-t border-border py-3 text-left text-base font-medium"
             type="button"
             onClick={() => {
               setOpen(false)
               navigate('/offline_setup')
             }}
           >
+            <Settings aria-hidden size={16} />
             Offline setup
           </button>
           {canAccessAdmin(user) && online && (
             <button
-              className="w-full border-t border-border py-3 text-left font-semibold"
+              className="w-full border-t border-border py-3 text-left text-sm"
               type="button"
               onClick={() => {
                 setOpen(false)
@@ -310,10 +314,11 @@ export function AccountMenu({ user }: AccountMenuProps) {
             </button>
           )}
           <button
-            className="w-full border-t border-border pt-3 text-left font-semibold text-danger"
+            className="flex w-full items-center gap-2 border-t border-border pt-3 text-left text-base font-medium text-danger"
             type="button"
             onClick={signOut}
           >
+            <LogOut aria-hidden size={16} />
             Log out
           </button>
         </div>

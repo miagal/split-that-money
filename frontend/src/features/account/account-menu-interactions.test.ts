@@ -70,7 +70,9 @@ function menuHarness(
     'lucide-react': {
       Check: 'check-icon',
       CloudOff: 'cloud-off-icon',
+      LogOut: () => null,
       RefreshCw: 'refresh-icon',
+      Settings: () => null,
       Skull: 'skull-icon',
       TriangleAlert: 'warning-icon',
       Upload: 'upload-icon',
@@ -96,6 +98,7 @@ function menuHarness(
       useSyncPendingChanges: () => 0,
     },
     './account-menu-rules.ts': {
+      syncPendingLabel: () => null,
       syncPresentation: () => ({
         icon: 'check',
         tone: 'success',

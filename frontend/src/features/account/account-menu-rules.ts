@@ -13,22 +13,52 @@ type OverflowMeasurement = {
 }
 
 type SyncPresentation = {
-  label: SyncStatus
+  label: string
   tone: 'success' | 'warning' | 'danger' | 'muted'
   icon: 'check' | 'refresh' | 'upload' | 'cloud-off' | 'warning'
 }
 
-const SYNC_PRESENTATION: Record<SyncStatus, Omit<SyncPresentation, 'label'>> = {
-  Synced: { tone: 'success', icon: 'check' },
-  Syncing: { tone: 'warning', icon: 'refresh' },
-  'Changes waiting to sync': { tone: 'warning', icon: 'upload' },
-  'Server not reachable': { tone: 'muted', icon: 'cloud-off' },
-  'Needs attention': { tone: 'danger', icon: 'warning' },
+const SYNC_PRESENTATION: Record<SyncStatus, SyncPresentation> = {
+  Synced: { label: 'Synced', tone: 'success', icon: 'check' },
+  Syncing: { label: 'Syncing', tone: 'warning', icon: 'refresh' },
+  'Changes waiting to sync': { label: 'Waiting', tone: 'warning', icon: 'upload' },
+  'Server not reachable': {
+    label: 'Not reachable',
+    tone: 'muted',
+    icon: 'cloud-off',
+  },
+  'Needs attention': {
+    label: 'Attention',
+    tone: 'danger',
+    icon: 'warning',
+  },
 }
 
 /** Maps the sync status to the compact account-status presentation. */
 export function syncPresentation(status: SyncStatus): SyncPresentation {
-  return { label: status, ...SYNC_PRESENTATION[status] }
+  return SYNC_PRESENTATION[status]
+}
+
+/**
+ * Extra pending copy under the short status, or null when the status already says it.
+ *
+ * @param status - Controller sync status, not the shortened display label.
+ * @param pending - Number of outbox rows waiting.
+ * @returns A detail line, or null when none should render.
+ */
+export function syncPendingLabel(
+  status: SyncStatus,
+  pending: number,
+): string | null {
+  if (pending <= 0 || status === 'Changes waiting to sync') return null
+  if (status === 'Needs attention') {
+    return pending === 1
+      ? '1 change needs you to sync'
+      : `${pending} changes need you to sync`
+  }
+  return pending === 1
+    ? '1 change waiting to sync'
+    : `${pending} changes waiting to sync`
 }
 
 /**
