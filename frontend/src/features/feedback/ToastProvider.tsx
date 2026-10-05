@@ -8,7 +8,6 @@ import {
   type ReactNode,
 } from 'react'
 import { X } from 'lucide-react'
-import { IconButton } from '../../components/IconButton.tsx'
 import {
   addToast,
   nextRemaining,
@@ -106,20 +105,21 @@ function ToastCard({ toast, onDismiss, onPause, onResume }: ToastCardProps) {
 
   return (
     <div
-      className={`toast-enter pointer-events-auto flex items-start gap-3 rounded-xl border bg-surface-raised p-4 text-sm shadow-lg ${borderClass}`}
+      className={`toast-enter pointer-events-auto flex items-center gap-3 rounded-xl border bg-surface-raised p-4 text-base shadow-lg ${borderClass}`}
       role={isError ? 'alert' : 'status'}
       aria-atomic="true"
       onPointerEnter={onPause}
       onPointerLeave={onResume}
     >
-      <p className="min-w-0 flex-1 break-words pt-2">{toast.message}</p>
-      <IconButton
+      <p className="min-w-0 flex-1 break-words">{toast.message}</p>
+      <button
+        type="button"
         aria-label="Dismiss notification"
-        variant="text"
+        className="shrink-0 rounded-md text-accent transition-colors hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         onClick={onDismiss}
       >
         <X aria-hidden="true" size={18} strokeWidth={2} />
-      </IconButton>
+      </button>
     </div>
   )
 }
