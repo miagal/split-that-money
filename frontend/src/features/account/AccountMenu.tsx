@@ -28,6 +28,7 @@ import {
 import { Switch } from '../../components/Switch.tsx'
 import { Button } from '../../components/Button.tsx'
 import { Dialog } from '../../components/Dialog.tsx'
+import { getPublicConfig } from '../auth/auth-api.ts'
 import { useTheme } from './theme.ts'
 
 type AccountMenuProps = { user: UserDto }
@@ -51,6 +52,8 @@ export function AccountMenu({ user }: AccountMenuProps) {
   const pendingChanges = useSyncPendingChanges()
   const { theme, setTheme } = useTheme()
   const [open, setOpen] = useState(false)
+  // Default true so Offline setup stays visible until config loads (local mode).
+  const [localCaSetup, setLocalCaSetup] = useState(true)
   const [emailOverflow, setEmailOverflow] = useState<{
     animate: boolean
     distance: number
@@ -79,6 +82,13 @@ export function AccountMenu({ user }: AccountMenuProps) {
           ? 'text-danger'
           : 'text-muted'
   const pendingLabel = syncPendingLabel(syncStatus, pendingChanges)
+
+  // Hide Offline setup in domain mode; keep it on config fetch failure.
+  useEffect(() => {
+    void getPublicConfig()
+      .then((config) => setLocalCaSetup(config.LOCAL_CA_SETUP))
+      .catch(() => undefined)
+  }, [])
 
   useEffect(() => {
     if (!open) return
@@ -290,17 +300,20 @@ export function AccountMenu({ user }: AccountMenuProps) {
               onCheckedChange={(on) => setTheme(on ? 'dark' : 'light')}
             />
           </div>
-          <button
-            className="flex w-full items-center gap-2 border-t border-border py-3 text-left text-base font-medium"
-            type="button"
-            onClick={() => {
-              setOpen(false)
-              navigate('/offline_setup')
-            }}
-          >
-            <Settings aria-hidden size={16} />
-            Offline setup
-          </button>
+          {/* Certificate download only applies when STM uses a local CA. */}
+          {localCaSetup && (
+            <button
+              className="flex w-full items-center gap-2 border-t border-border py-3 text-left text-base font-medium"
+              type="button"
+              onClick={() => {
+                setOpen(false)
+                navigate('/offline_setup')
+              }}
+            >
+              <Settings aria-hidden size={16} />
+              Offline setup
+            </button>
+          )}
           {canAccessAdmin(user) && online && (
             <button
               className="w-full border-t border-border py-3 text-left text-sm"

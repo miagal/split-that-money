@@ -24,6 +24,7 @@ const user = {
 function menuHarness(
   roles: Pick<typeof user, 'is_staff' | 'is_superuser'>,
   options: boolean | { online?: boolean; sessionExpired?: boolean } = {},
+  configOptions: { localCaSetup?: boolean } = {},
 ) {
   const { online, sessionExpired } =
     typeof options === 'boolean'
@@ -52,7 +53,7 @@ function menuHarness(
       ]
     },
     useRef: (initial: unknown) => ({ current: initial }),
-    useEffect: () => undefined,
+    useEffect: (effect: () => void) => effect(),
   }
   const source = readFileSync(
     new URL('./AccountMenu.tsx', import.meta.url),
@@ -97,6 +98,19 @@ function menuHarness(
       useSyncStatus: () => 'idle',
       useSyncPendingChanges: () => 0,
     },
+    '../auth/auth-api.ts': {
+      getPublicConfig: () => ({
+        then(resolve: (config: Record<string, unknown>) => void) {
+          resolve({
+            ALLOW_SELF_REGISTRATION: true,
+            SHELL_NETWORK_TIMEOUT_SECONDS: 3,
+            SYNC_REQUEST_TIMEOUT_SECONDS: 8,
+            LOCAL_CA_SETUP: configOptions.localCaSetup ?? true,
+          })
+          return { catch: () => undefined }
+        },
+      }),
+    },
     './account-menu-rules.ts': {
       syncPendingLabel: () => null,
       syncPresentation: () => ({
@@ -117,7 +131,20 @@ function menuHarness(
   }
   runInNewContext(compiled, {
     exports,
+    document: {
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    },
     navigator: { onLine: online },
+    window: {
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      matchMedia: () => ({
+        matches: false,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      }),
+    },
     require: (name: string) => stubs[name] ?? require(name),
   })
   return {
@@ -169,6 +196,21 @@ test('ordinary users can open Offline setup while offline and close the menu', (
   assert.ok(offlineSetup)
   offlineSetup.props.onClick()
   assert.deepEqual(menu.navigations, ['/offline_setup'])
+  assert.equal(
+    nodes(menu.render()).some((node) => content(node) === 'Offline setup'),
+    false,
+  )
+})
+
+test('hides Offline setup when local CA setup is disabled', () => {
+  const menu = menuHarness(
+    { is_staff: false, is_superuser: false },
+    true,
+    { localCaSetup: false },
+  )
+  nodes(menu.render())
+    .find((node) => node.props['aria-label'] === 'Open account menu')!
+    .props.onClick()
   assert.equal(
     nodes(menu.render()).some((node) => content(node) === 'Offline setup'),
     false,

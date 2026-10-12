@@ -1,9 +1,23 @@
 // Explains local certificate trust before installing the authenticated app for offline use.
+// In domain mode (LOCAL_CA_SETUP=false) this page is unused; deep links redirect home.
+import { useEffect } from 'react'
 import { Download, House } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { getPublicConfig } from '../auth/auth-api.ts'
 
 /** Renders the server-trust instructions and local certificate download. */
 export function OfflineSetupPage() {
+  const navigate = useNavigate()
+
+  // Edge-TLS deployments have no local root to install; leave this route.
+  useEffect(() => {
+    void getPublicConfig()
+      .then((config) => {
+        if (!config.LOCAL_CA_SETUP) navigate('/', { replace: true })
+      })
+      .catch(() => undefined)
+  }, [navigate])
+
   return (
     <section className="mx-auto grid max-w-5xl gap-6 px-3 py-5 sm:p-8">
       <div>

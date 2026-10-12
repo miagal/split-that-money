@@ -1,0 +1,31 @@
+# Domain mode: the NAS edge proxy terminates HTTPS. This file only serves HTTP.
+# Selected when APP_DOMAIN is set (see caddy/docker-entrypoint.sh).
+{
+	# Trust X-Forwarded-* from private LAN proxies so Django sees the real scheme.
+	servers {
+		trusted_proxies static private_ranges
+	}
+}
+
+# Listen on the port only (no hostname). The edge proxy forwards Host: stm.example.com.
+:{$HTTP_PORT} {
+	encode zstd gzip
+
+	# Vite fingerprints files below /assets/, so they are safe to retain indefinitely.
+	handle /assets/* {
+		root /srv
+		header Cache-Control "public, max-age=31536000, immutable"
+		file_server
+	}
+
+	handle /api/* {
+		reverse_proxy backend:8000
+	}
+
+	handle {
+		root /srv
+		header Cache-Control "no-cache"
+		try_files {path} /index.html
+		file_server
+	}
+}

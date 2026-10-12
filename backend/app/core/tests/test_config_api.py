@@ -18,6 +18,7 @@ def test_public_config_exposes_registration_flag(client):
         "ALLOW_SELF_REGISTRATION": True,
         "SHELL_NETWORK_TIMEOUT_SECONDS": 3,
         "SYNC_REQUEST_TIMEOUT_SECONDS": 8,
+        "LOCAL_CA_SETUP": True,
     }
 
 

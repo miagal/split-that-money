@@ -1,72 +1,112 @@
 # Split That Money
 
-Split That Money is a self-hosted app for tracking shared expenses in a small circle of people: 
-households, trips, and similar groups. 
+Split That Money is a self-hosted app for tracking shared expenses in a small circle of people:
+households, trips, and similar groups.
 It runs on your own NAS or server. No public domain, cloud account, or internet-facing port is required.
 
-Phones install it as a local PWA over HTTPS on your LAN. After that the app keeps working offline. 
+Phones install it as a local PWA over HTTPS on your LAN. After that the app keeps working offline.
 New expenses stay on the device and sync when the server is reachable again.
 
 ## Deploy to your server
 
-For a normal deployment, the three values at the top of `docker-compose.yml`
-are the only server-specific network settings to update:
+Pick a deployment mode, then set the four values at the top of `docker-compose.yml`.
+
+### Choose a mode
+
+| | **Local mode** (default) | **Domain mode** (recommended if you own a domain) |
+|---|---|---|
+| When | No domain, or you want the simplest stack | You already own a domain / subdomain |
+| `x-app-domain` | Leave empty `""` | Your hostname, e.g. `"stm.example.com"` |
+| App URL / PWA origin | `https://<IP>:<HTTPS_PORT>` | `https://<your-domain>` (port 443 at the edge) |
+| TLS | STM Caddy + local CA | Edge reverse proxy (e.g. NAS Caddy + Let's Encrypt) |
+| Phone setup | Install local root cert via `/offline_setup` | Normal public certificate — no local CA |
+| Ports to publish | HTTP + HTTPS | HTTP only (comment out the HTTPS publish block) |
+
+Local mode needs no domain. Domain mode still keeps traffic on your LAN (or VPN); it only makes certificates easier on phones. Full domain steps: [Domain deployment](docs/domain-deployment.md).
+
+### Network settings (edit these first)
 
 ```yaml
-x-app-host: &app_host "192.168.178.xx" # Active IPv4 address of your server/NAS
-x-http-port: &http_port "8080"          # HTTP Offline setup and certificate download
-x-https-port: &https_port "8443"        # HTTPS application and PWA URL. Important if you want to use the app offline on your mobile
+x-app-domain: &app_domain ""             # Empty = local mode; hostname = domain mode
+x-app-host: &app_host "192.168.178.xx"   # Active IPv4 address of your server/NAS
+x-http-port: &http_port "8081"           # HTTP: local setup / cert download, or proxy target in domain mode
+x-https-port: &https_port "8443"         # Local mode only: HTTPS app and PWA port
 ```
 
-Before the deployment on your host, check that those ports are still free before
-starting the stack. Change the numbers if you changed the Compose values:
+| Anchor | Required | Local mode | Domain mode |
+|--------|----------|------------|-------------|
+| `x-app-domain` | Yes (may be empty) | Leave `""` | Set to your subdomain |
+| `x-app-host` | Yes | Server LAN IPv4 | Same |
+| `x-http-port` | Yes | Setup + cert download | Port your edge proxy forwards to |
+| `x-https-port` | Local only | PWA HTTPS port | Unused — comment out the HTTPS `ports:` block |
+
+Check that the ports you publish are free before starting (adjust the numbers if you changed Compose):
 
 ```bash
-ss -lnt | grep -E ':8080|:8443' || echo "8080 and 8443 look free"
+ss -lnt | grep -E ':8081|:8443' || echo "8081 and 8443 look free"
 ```
 
-If the command prints listen lines, pick other ports or stop the process that
-owns them.
+If the command prints listen lines, pick other ports or stop the process that owns them.
 
-### Common settings
+### Local mode checklist
 
-| Variable | Default | Effect |
+1. Leave `x-app-domain` empty.
+2. Set `x-app-host`, `x-http-port`, and `x-https-port`.
+3. Keep both HTTP and HTTPS port publishes enabled.
+4. Keep `SESSION_COOKIE_SECURE` and `CSRF_COOKIE_SECURE` set to `"true"`.
+5. Start the stack (see below).
+6. On each phone: open `http://<SERVER-IP>:<HTTP-PORT>/offline_setup`, install the Caddy root certificate, then open the HTTPS URL and add it to the Home Screen.
+
+More detail: [iOS Home Screen and local HTTPS](docs/ios-home-screen-and-local-https.md).
+
+### Domain mode checklist
+
+1. Set `x-app-domain` to your hostname (e.g. `stm.example.com`).
+2. Set `x-app-host` and `x-http-port`.
+3. Comment out the HTTPS publish block marked local-mode only in `docker-compose.yml`.
+4. Point DNS and an edge reverse proxy at `http://<APP_HOST>:<HTTP_PORT>` — see [Domain deployment](docs/domain-deployment.md).
+5. Start the stack.
+6. Install and use the PWA only from `https://<your-domain>`.
+
+### Application settings
+
+These live under `environment:` in `docker-compose.yml`. You can also load them from a root `.env` file (uncomment `env_file: .env` on the backend service).
+
+**Security and access**
+
+| Variable | Default | Notes |
 |----------|---------|--------|
-| `DJANGO_SECRET_KEY` | `change-this-secret-key-in-production` | Secret used to sign sessions and cookies. Replace it on a real NAS. Changing it signs everyone out. |
-| `DATABASE_NAME` | `split_that_money.sqlite3` | SQLite file name. Compose stores it at `/data/split_that_money.sqlite3` so it survives container rebuilds. |
-| `LOG_LEVEL` | `INFO` | Verbosity of application logs in `backend/app/logs/app.log` and the container log volume. |
-| `SESSION_COOKIE_AGE_DAYS` | `30` | Days a server sign-in stays valid. After expiry the app keeps working offline and asks for a new sign-in to sync. |
-| `SHELL_NETWORK_TIMEOUT_SECONDS` | `3` | Seconds a cold start waits for the server before using the cached PWA app. Applies from the start after the app has loaded the new value. |
-| `SYNC_REQUEST_TIMEOUT_SECONDS` | `8` | Seconds one GUI sync request waits for the server before aborting. Stops the Syncing badge from hanging when the NAS is unreachable. |
-| `ALLOW_SELF_REGISTRATION` | `true` | Shows account registration on the login page. If `false` the app admin creates the new user accounts. |
-| `SESSION_COOKIE_SECURE` / `CSRF_COOKIE_SECURE` | `true` | Send cookies over HTTPS only. |
+| `DJANGO_SECRET_KEY` | `change-this-secret-key-in-production` | Replace on a real NAS. Changing it signs everyone out. |
+| `SESSION_COOKIE_SECURE` / `CSRF_COOKIE_SECURE` | `"true"` | HTTPS-only cookies. In domain mode, set both to `"false"` only if you also need login on the plain `http://<IP>:<HTTP_PORT>` debug URL; keep that port LAN-only. |
+| `ALLOW_SELF_REGISTRATION` | `true` | Registration on the login page. If `false`, an admin creates accounts. |
+| `SESSION_COOKIE_AGE_DAYS` | `30` | Days a server sign-in stays valid. Offline data survives expiry; sign in again to sync. |
 
-The startup script is a convenient deployment approach because it also checks the server IP, ports and certificate:
+**Data and behaviour**
+
+| Variable | Default | Notes |
+|----------|---------|--------|
+| `DATABASE_NAME` | `/data/split_that_money.sqlite3` | SQLite path inside the container; survives rebuilds via the data volume. |
+| `LOG_LEVEL` | `INFO` | Application log verbosity. |
+| `SHELL_NETWORK_TIMEOUT_SECONDS` | `3` | Cold start: how long the PWA waits for the server before using the cached shell. |
+| `SYNC_REQUEST_TIMEOUT_SECONDS` | `8` | How long one GUI sync request waits before aborting. |
+
+The network anchors above are copied into the containers as `APP_DOMAIN`, `APP_HOST`, `HTTP_PORT`, and `HTTPS_PORT`. You normally edit only the four `x-…` lines at the top of Compose.
+
+### Start the stack
+
+The startup script checks the server IP, ports, and (in local mode) the certificate:
 
 ```bash
 ./scripts/start-production.sh
 ```
 
-Use `.env` when you need to configure application values beyond the network address.
-The same values can be configured over the `environment:` section of the docker-compose.
-
-
-For a manual Compose build workflow, use:
+Manual Compose workflow:
 
 ```bash
 docker compose config -q
 docker compose up -d --build
 docker compose logs --tail=100 frontend
 ```
-
-### Enable offline mode on your mobile device.
-
-After adding a shortcut of the application to your Home Screen,
-open `http://<SERVER-IP>:<HTTPS-PORT>/offline_setup` and follow the instructions.
-This page provides the download for the local Caddy root certificate. 
-The Installation of the certificate allows you to use the application without a permanent connection
-to your server, and will save your your newly added expenses, when you are connected back
-with the server.
 
 ## Production-like local test
 
@@ -76,8 +116,7 @@ same trusted HTTPS origin that a phone installation uses.
 
 1. Set `x-app-host` in `docker-compose.yml` to an active LAN IP of the current
    computer. Keep `x-http-port` and `x-https-port` free on that computer.
-2. Create a root `.env` file from `.env.example` and set secure values when
-   required for the test.
+2. Create a root `.env` file if you need non-default application values.
 3. Run:
 
    ```bash
@@ -157,7 +196,7 @@ python manage.py bootstrap_admin
 python manage.py runserver
 ```
 
-Copy `backend/.env.example` to `backend/.env` (gitignored). 
+Copy `backend/.env.example` to `backend/.env` (gitignored).
 Set the PC's current IPv4 address in both lists and keep cookies usable over Vite's HTTP.
 Other devices on the same local network will open `http://<this-PC-IP>:5173` and Vite proxies `/api` to Django:
 

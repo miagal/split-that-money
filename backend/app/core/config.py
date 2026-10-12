@@ -32,18 +32,46 @@ def _get_list(name: str, default: str) -> list[str]:
     return [value.strip() for value in raw_value.split(",") if value.strip()]
 
 
+def _app_domain() -> str:
+    """Return the trimmed public hostname, or empty when local mode is active."""
+    return os.getenv("APP_DOMAIN", "").strip()
+
+
+def _https_origin(host: str, port: str) -> str:
+    """Build an https origin, omitting the port when it is 443."""
+    return f"https://{host}" if port == "443" else f"https://{host}:{port}"
+
+
+def _http_origin(host: str, port: str) -> str:
+    """Build an http origin, omitting the port when it is 80."""
+    return f"http://{host}" if port == "80" else f"http://{host}:{port}"
+
+
 def _get_allowed_hosts() -> list[str]:
-    """Prefer the public Compose host when the deployment supplies one."""
-    return [os.environ["APP_HOST"]] if os.getenv("APP_HOST") else _get_list("ALLOWED_HOSTS", "localhost,127.0.0.1")
+    """Prefer Compose public host values when the deployment supplies them."""
+    domain = _app_domain()
+    host = os.getenv("APP_HOST", "").strip()
+    if domain and host:
+        return [domain, host]
+    if domain:
+        return [domain]
+    if host:
+        return [host]
+    return _get_list("ALLOWED_HOSTS", "localhost,127.0.0.1")
 
 
 def _get_csrf_trusted_origins() -> list[str]:
-    """Build the public HTTPS origin from Compose inputs when available."""
-    host = os.getenv("APP_HOST")
+    """Build trusted browser origins for local HTTPS or domain + HTTP debug."""
+    domain = _app_domain()
+    host = os.getenv("APP_HOST", "").strip()
+    if domain:
+        origins = [_https_origin(domain, "443")]
+        if host:
+            origins.append(_http_origin(host, os.getenv("HTTP_PORT", "8080")))
+        return origins
     if not host:
         return _get_list("CSRF_TRUSTED_ORIGINS", "")
-    port = os.getenv("HTTPS_PORT", "443")
-    return [f"https://{host}" if port == "443" else f"https://{host}:{port}"]
+    return [_https_origin(host, os.getenv("HTTPS_PORT", "443"))]
 
 
 def _get_int(name: str, default: str) -> int:
@@ -64,6 +92,8 @@ class Settings(BaseSettings):
     DJANGO_DEBUG: bool = _get_bool("DJANGO_DEBUG", "true")
     ALLOWED_HOSTS: list[str] = _get_allowed_hosts()
     CSRF_TRUSTED_ORIGINS: list[str] = _get_csrf_trusted_origins()
+    LOCAL_CA_SETUP: bool = not bool(_app_domain())
+    # True when STM terminates TLS itself (local CA); false when APP_DOMAIN is set and an edge proxy handles HTTPS -> access via subdomain.
     DATABASE_NAME: str = os.getenv("DATABASE_NAME", "split_that_money.sqlite3")
     ALLOW_SELF_REGISTRATION: bool = _get_bool("ALLOW_SELF_REGISTRATION", "true")
     BOOTSTRAP_ADMIN_ENABLED: bool = _get_bool("BOOTSTRAP_ADMIN_ENABLED", "false")
@@ -100,6 +130,7 @@ PUBLIC_CONFIG_VARS = [
     "ALLOW_SELF_REGISTRATION",
     "SHELL_NETWORK_TIMEOUT_SECONDS",
     "SYNC_REQUEST_TIMEOUT_SECONDS",
+    "LOCAL_CA_SETUP",
 ]
 
 settings = Settings()

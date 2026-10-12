@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Starts the local production stack after verifying its IP address and HTTPS certificate.
-# The script keeps Caddy's root CA intact because phones trust that persistent certificate.
+# Starts the production stack in local-CA or domain mode after validating its public endpoints.
+# Local mode keeps Caddy's root CA intact because phones trust that persistent certificate.
 
 set -euo pipefail
 
@@ -12,15 +12,15 @@ leaf_certificates_path='/data/caddy/certificates/local'
 # Reads one deliberately centralized deployment value without accepting a silently changed Compose structure.
 read_compose_value() {
   local key=$1
-  local value
+  local match
 
-  value=$(sed -nE "s/^[[:space:]]*${key}:[[:space:]]*\&[a-z_]+[[:space:]]*\"([^\"]+)\"[[:space:]]*$/\1/p" "$compose_file")
-  if [ "$(printf '%s\n' "$value" | sed '/^$/d' | wc -l)" -ne 1 ]; then
+  match=$(sed -nE "s/^[[:space:]]*${key}:[[:space:]]*\&[a-z_]+[[:space:]]*\"([^\"]*)\"[[:space:]]*$/__MATCH__\1/p" "$compose_file")
+  if [ "$(printf '%s\n' "$match" | sed -n '/^__MATCH__/p' | wc -l)" -ne 1 ]; then
     echo "Expected exactly one ${key} value in docker-compose.yml." >&2
     exit 2
   fi
 
-  printf '%s\n' "$value"
+  printf '%s\n' "${match#__MATCH__}"
 }
 
 # Validates the fixed IPv4 address and host ports before Docker receives them.
@@ -61,26 +61,60 @@ list_active_ipv4() {
 # Stops before Docker runs when a required host tool is missing.
 require_host_commands() {
   local command
-  for command in docker curl openssl cmp; do
+  for command in docker curl; do
     command -v "$command" >/dev/null || {
       echo "Required command is not available: $command" >&2
       exit 2
     }
   done
+  if [ -z "$app_domain" ]; then
+    for command in openssl cmp; do
+      command -v "$command" >/dev/null || {
+        echo "Required command is not available: $command" >&2
+        exit 2
+      }
+    done
+  fi
   case "$(uname -s)" in
     Darwin)
-      command -v ifconfig >/dev/null || {
-        echo "Required command is not available: ifconfig" >&2
-        exit 2
-      }
+      for command in ifconfig lsof; do
+        command -v "$command" >/dev/null || {
+          echo "Required command is not available: $command" >&2
+          exit 2
+        }
+      done
       ;;
     *)
-      command -v ip >/dev/null || {
-        echo "Required command is not available: ip" >&2
-        exit 2
-      }
+      for command in ip ss; do
+        command -v "$command" >/dev/null || {
+          echo "Required command is not available: $command" >&2
+          exit 2
+        }
+      done
       ;;
   esac
+}
+
+# Stops before startup when a required host port already has a listener.
+verify_port_available() {
+  local port=$1
+  local listeners
+
+  case "$(uname -s)" in
+    Darwin)
+      listeners=$(lsof -nP -iTCP -sTCP:LISTEN || true)
+      ;;
+    *)
+      if ! listeners=$(ss -lnt); then
+        echo "Unable to inspect listening TCP ports with ss." >&2
+        exit 2
+      fi
+      ;;
+  esac
+  if awk -v port="$port" '$0 ~ (":" port "([[:space:]]|$)") { found = 1 } END { exit !found }' <<< "$listeners"; then
+    echo "Port ${port} is already in use on this host." >&2
+    exit 1
+  fi
 }
 
 # Stops before startup when Compose points at another device; changing it would also change the PWA origin.
@@ -104,6 +138,51 @@ wait_for_https() {
   done
 
   echo "HTTPS listener did not become ready at https://${app_host}:${https_port}/." >&2
+  exit 1
+}
+
+# Waits for domain mode's HTTP app and verifies that its root response is HTML with status 200.
+wait_for_http_app() {
+  local attempt
+  local status
+  for attempt in $(seq 1 15); do
+    status=$(curl --silent --show-error --connect-timeout 2 --max-time 5 \
+      --output "$html_response" --write-out '%{http_code}' \
+      "http://${app_host}:${http_port}/" || true)
+    if [ "$status" = "200" ] && grep -Eiq '<(!doctype|html)' "$html_response"; then
+      return
+    fi
+    sleep 2
+  done
+
+  echo "HTTP app did not return HTML 200 at http://${app_host}:${http_port}/." >&2
+  exit 1
+}
+
+# Waits until Caddy can reach Django; the HTML check alone is not enough because
+# static files are ready before Gunicorn listens.
+wait_for_domain_public_config() {
+  local attempt
+  local status
+  local config_response="$temporary_directory/public-config.json"
+
+  for attempt in $(seq 1 30); do
+    status=$(curl --silent --show-error --connect-timeout 2 --max-time 5 \
+      --output "$config_response" --write-out '%{http_code}' \
+      "http://${app_host}:${http_port}/api/config/public/" || true)
+    if [ "$status" = "200" ] \
+      && grep -E '"LOCAL_CA_SETUP":[[:space:]]*false' "$config_response" >/dev/null; then
+      return
+    fi
+    sleep 2
+  done
+
+  echo "Public config did not report LOCAL_CA_SETUP=false at http://${app_host}:${http_port}/api/config/public/." >&2
+  if [ -s "$config_response" ]; then
+    echo "Last response:" >&2
+    cat "$config_response" >&2
+    echo >&2
+  fi
   exit 1
 }
 
@@ -143,34 +222,51 @@ if [ ! -f "$compose_file" ]; then
   exit 2
 fi
 
+app_domain=$(read_compose_value x-app-domain)
+app_domain=$(printf '%s' "$app_domain" | tr -d '[:space:]')
 app_host=$(read_compose_value x-app-host)
 http_port=$(read_compose_value x-http-port)
 https_port=$(read_compose_value x-https-port)
 validate_deployment_values
 require_host_commands
 verify_host_address
+if [ -z "$(docker compose -f "$compose_file" ps -q frontend)" ]; then
+  verify_port_available "$http_port"
+  if [ -z "$app_domain" ]; then
+    verify_port_available "$https_port"
+  fi
+fi
 
 temporary_directory=$(mktemp -d)
 root_certificate="$temporary_directory/root.crt"
 downloaded_root_certificate="$temporary_directory/downloaded-root.crt"
 leaf_certificate="$temporary_directory/leaf.crt"
+html_response="$temporary_directory/index.html"
 trap 'rm -rf "$temporary_directory"' EXIT
 
 cd "$project_root"
 docker compose config -q
 docker compose up -d --build
-docker compose exec -T frontend caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null
-wait_for_https
 
-if ! verify_leaf_certificate; then
-  renew_leaf_certificates
-  verify_leaf_certificate
+if [ -n "$app_domain" ]; then
+  docker compose exec -T frontend caddy validate --config /etc/caddy/Caddyfile.domain --adapter caddyfile >/dev/null 2>&1
+  wait_for_http_app
+  wait_for_domain_public_config
+  echo "Production stack is running behind the domain proxy at http://${app_host}:${http_port}/"
+else
+  docker compose exec -T frontend caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1
+  wait_for_https
+
+  if ! verify_leaf_certificate; then
+    renew_leaf_certificates
+    verify_leaf_certificate
+  fi
+
+  if ! curl --fail --silent --show-error "http://${app_host}:${http_port}/offline_setup" \
+    | grep -F "https://${app_host}:${https_port}/offline_setup" >/dev/null; then
+    echo "HTTP offline setup page does not link to the configured HTTPS origin." >&2
+    exit 1
+  fi
+
+  echo "Production stack is running at https://${app_host}:${https_port}/"
 fi
-
-if ! curl --fail --silent --show-error "http://${app_host}:${http_port}/offline_setup" \
-  | grep -F "https://${app_host}:${https_port}/offline_setup" >/dev/null; then
-  echo "HTTP offline setup page does not link to the configured HTTPS origin." >&2
-  exit 1
-fi
-
-echo "Production stack is running at https://${app_host}:${https_port}/"

@@ -152,6 +152,7 @@ function authHarness(
         ALLOW_SELF_REGISTRATION: true,
         SHELL_NETWORK_TIMEOUT_SECONDS: 3,
         SYNC_REQUEST_TIMEOUT_SECONDS: 8,
+        LOCAL_CA_SETUP: true,
       }),
       login: async () => options.loginUser ?? user,
       logout: options.logout ?? (async () => undefined),

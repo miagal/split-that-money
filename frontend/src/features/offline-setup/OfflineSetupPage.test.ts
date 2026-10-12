@@ -10,7 +10,12 @@ type Node = { type: unknown; props: Record<string, unknown> }
 const require = createRequire(import.meta.url)
 
 /** Renders the real page with navigation and icon dependencies represented as JSX nodes. */
-function renderOfflineSetupPage(): Node {
+function renderOfflineSetupPage(
+  options: {
+    localCaSetup?: boolean
+    navigations?: Array<{ path: string; replace: boolean }>
+  } = {},
+): Node {
   const source = readFileSync(
     new URL('./OfflineSetupPage.tsx', import.meta.url),
     'utf8',
@@ -30,8 +35,32 @@ function renderOfflineSetupPage(): Node {
     exports,
     require: (name: string) =>
       ({
+        react: { useEffect: (effect: () => void) => effect() },
         'react/jsx-runtime': { jsx, jsxs: jsx },
-        'react-router-dom': { Link: 'Link' },
+        'react-router-dom': {
+          Link: 'Link',
+          useNavigate: () => (
+            path: string,
+            navigationOptions: { replace?: boolean } = {},
+          ) =>
+            options.navigations?.push({
+              path,
+              replace: navigationOptions.replace ?? false,
+            }),
+        },
+        '../auth/auth-api.ts': {
+          getPublicConfig: () => ({
+            then(resolve: (config: Record<string, unknown>) => void) {
+              resolve({
+                ALLOW_SELF_REGISTRATION: true,
+                SHELL_NETWORK_TIMEOUT_SECONDS: 3,
+                SYNC_REQUEST_TIMEOUT_SECONDS: 8,
+                LOCAL_CA_SETUP: options.localCaSetup ?? true,
+              })
+              return { catch: () => undefined }
+            },
+          }),
+        },
         'lucide-react': { Download: 'Download', House: 'House' },
       })[name] ?? require(name),
   })
@@ -112,4 +141,14 @@ test('lists the public setup steps from the main app through restart', () => {
     nodes(downloadLink.props.children).some((node) => node.type === 'Download'),
     true,
   )
+})
+
+test('redirects to the app root when local CA setup is disabled', () => {
+  const navigations: Array<{ path: string; replace: boolean }> = []
+
+  renderOfflineSetupPage({ localCaSetup: false, navigations })
+
+  assert.equal(navigations.length, 1)
+  assert.equal(navigations[0].path, '/')
+  assert.equal(navigations[0].replace, true)
 })

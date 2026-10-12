@@ -1,6 +1,12 @@
-# Update these three values for the NAS that runs this stack.
+# Deployment modes (edit the four anchors below):
+#   Local  — leave x-app-domain empty; publish HTTP + HTTPS; install local CA on phones.
+#   Domain — set x-app-domain to your hostname; comment out the HTTPS ports block;
+#            put an edge reverse proxy in front (see docs/domain-deployment.md).
+# README: network settings, checklists, and application variables.
+
+x-app-domain: &app_domain ""
 x-app-host: &app_host "192.168.178.110"
-x-http-port: &http_port "8080"
+x-http-port: &http_port "8081"
 x-https-port: &https_port "8443"
 
 services:
@@ -14,11 +20,18 @@ services:
       DATABASE_NAME: /data/split_that_money.sqlite3
       LOG_LEVEL: "INFO"
       DJANGO_SECRET_KEY: "change-this-secret-key-in-production"
+
       # Shared public values let Django derive its allowed host and CSRF origin.
+      APP_DOMAIN: *app_domain
       APP_HOST: *app_host
       HTTPS_PORT: *https_port
+      HTTP_PORT: *http_port
+
+      # Keep "true" for HTTPS-only cookies. In domain mode, set both to "false" only if
+      # you also need login on http://<APP_HOST>:<HTTP_PORT> (LAN debug URL — do not expose it).
       SESSION_COOKIE_SECURE: "true"
       CSRF_COOKIE_SECURE: "true"
+      
       # Days a server sign-in stays valid; offline data survives expiry and syncs after the same user signs in again.
       SESSION_COOKIE_AGE_DAYS: "30"
       # Seconds the installed React Gui app waits for the server before starting from its cached shell.
@@ -38,20 +51,21 @@ services:
     depends_on:
       - backend
     environment:
+      APP_DOMAIN: *app_domain
       # Fixed IP address of the device running this Compose stack.
       APP_HOST: *app_host
-      # Public PWA port; it is part of the installed app's URL.
+      # Local mode: public PWA port (part of the installed app URL). Unused in domain mode.
       HTTPS_PORT: *https_port
-      # Public HTTP port for first-device setup and certificate download.
+      # Local mode: setup page and root cert. Domain mode: full app for the edge proxy.
       HTTP_PORT: *http_port
     ports:
-      # Publish the configured HTTPS port unchanged inside the frontend container.
-      - target: *https_port
-        published: *https_port
-        protocol: tcp
-      # Publish the configured HTTP bootstrap port unchanged inside the frontend container.
+      # Always publish HTTP (local setup / cert download, or domain proxy target).
       - target: *http_port
         published: *http_port
+        protocol: tcp
+      # Local mode only — comment out this HTTPS block when APP_DOMAIN is set.
+      - target: *https_port
+        published: *https_port
         protocol: tcp
     volumes:
       - caddy_data:/data
