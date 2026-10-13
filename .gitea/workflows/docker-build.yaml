@@ -1,0 +1,221 @@
+# Same manual release as .github/workflows/docker-build.yaml.
+# Forced differences only:
+# - runs-on ubuntu-latest, matching GITEA_RUNNER_LABELS
+# - registry is this Gitea instance; package push needs REGISTRY_TOKEN
+# - backend and frontend are separate jobs so they can run in parallel
+# - release uses the Gitea API; softprops/action-gh-release talks to GitHub only
+# Setup: .gitea/workflows/registry-token.md
+name: Manual Split That Money Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump_type:
+        description: 'Which part of the version to increment?'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+permissions:
+  contents: write   # Required for pushing git tags and creating releases
+
+concurrency: split-that-money-build
+
+# Central configuration
+env:
+  BACKEND_IMAGE_NAME: 'split-that-money/backend'
+  FRONTEND_IMAGE_NAME: 'split-that-money/frontend'
+  BACKEND_DOCKERFILE: './backend/Dockerfile'
+  FRONTEND_DOCKERFILE: './caddy/Dockerfile'
+  BUILD_CONTEXT: './'
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      NEW_TAG: ${{ steps.versioning.outputs.NEW_TAG }}
+      VERSION: ${{ steps.versioning.outputs.VERSION }}
+      REGISTRY: ${{ steps.versioning.outputs.REGISTRY }}
+      BACKEND_IMAGE: ${{ steps.versioning.outputs.BACKEND_IMAGE }}
+      FRONTEND_IMAGE: ${{ steps.versioning.outputs.FRONTEND_IMAGE }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetches all tags and history for version calculation
+
+      - name: Calculate Next Version
+        id: versioning
+        env:
+          SERVER_URL: ${{ github.server_url }}
+        run: |
+          set -euxo pipefail
+          # 1. Get the latest tag from git (fallback to v0.0.0 if no tags exist)
+          LATEST_TAG=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1)
+          LATEST_TAG=${LATEST_TAG:-v0.0.0}
+          echo "Latest tag found: $LATEST_TAG"
+
+          # 2. Strip the 'v' prefix
+          VERSION_CLEAN=${LATEST_TAG#v}
+
+          # 3. Split version into major, minor, patch
+          IFS='.' read -r major minor patch <<< "$VERSION_CLEAN"
+
+          # 4. Increment version based on user input
+          if [[ "${{ github.event.inputs.bump_type }}" == "major" ]]; then
+            major=$((major + 1))
+            minor=0
+            patch=0
+          elif [[ "${{ github.event.inputs.bump_type }}" == "minor" ]]; then
+            minor=$((minor + 1))
+            patch=0
+          else
+            patch=$((patch + 1))
+          fi
+
+          NEW_TAG="v$major.$minor.$patch"
+          VERSION="$major.$minor.$patch"
+          # Gitea registry host is this instance, not ghcr.io. Image names must be lowercase.
+          REGISTRY=${SERVER_URL#*://}
+          REGISTRY=${REGISTRY%%/*}
+          OWNER=$(printf '%s' "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          BACKEND_IMAGE="$REGISTRY/$OWNER/${{ env.BACKEND_IMAGE_NAME }}"
+          FRONTEND_IMAGE="$REGISTRY/$OWNER/${{ env.FRONTEND_IMAGE_NAME }}"
+
+          # 5. Set variables for the later jobs. GITHUB_ENV does not cross jobs.
+          {
+            echo "NEW_TAG=$NEW_TAG"
+            echo "VERSION=$VERSION"
+            echo "REGISTRY=$REGISTRY"
+            echo "BACKEND_IMAGE=$BACKEND_IMAGE"
+            echo "FRONTEND_IMAGE=$FRONTEND_IMAGE"
+          } >> "$GITHUB_OUTPUT"
+
+  backend:
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Gitea registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ needs.version.outputs.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.REGISTRY_TOKEN }}
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ env.BUILD_CONTEXT }}
+          file: ${{ env.BACKEND_DOCKERFILE }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ needs.version.outputs.BACKEND_IMAGE }}:${{ needs.version.outputs.VERSION }}
+            ${{ needs.version.outputs.BACKEND_IMAGE }}:latest
+          cache-from: type=registry,ref=${{ needs.version.outputs.BACKEND_IMAGE }}:buildcache
+          cache-to: type=registry,ref=${{ needs.version.outputs.BACKEND_IMAGE }}:buildcache,mode=max
+
+  frontend:
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Gitea registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ needs.version.outputs.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.REGISTRY_TOKEN }}
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ env.BUILD_CONTEXT }}
+          file: ${{ env.FRONTEND_DOCKERFILE }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ needs.version.outputs.FRONTEND_IMAGE }}:${{ needs.version.outputs.VERSION }}
+            ${{ needs.version.outputs.FRONTEND_IMAGE }}:latest
+          cache-from: type=registry,ref=${{ needs.version.outputs.FRONTEND_IMAGE }}:buildcache
+          cache-to: type=registry,ref=${{ needs.version.outputs.FRONTEND_IMAGE }}:buildcache,mode=max
+
+  release:
+    needs: [version, backend, frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create and push git tag
+        env:
+          NEW_TAG: ${{ needs.version.outputs.NEW_TAG }}
+        run: |
+          set -euxo pipefail
+          git config user.name "gitea-actions"
+          git config user.email "gitea-actions@localhost"
+
+          if git rev-parse -q --verify "refs/tags/$NEW_TAG" >/dev/null; then
+            echo "Tag $NEW_TAG already exists, skipping tag creation."
+          else
+            git tag -a "$NEW_TAG" -m "Release $NEW_TAG"
+            git push origin "$NEW_TAG"
+          fi
+
+      - name: Prepare Release Notes
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          VERSION: ${{ needs.version.outputs.VERSION }}
+          BACKEND_IMAGE: ${{ needs.version.outputs.BACKEND_IMAGE }}
+          FRONTEND_IMAGE: ${{ needs.version.outputs.FRONTEND_IMAGE }}
+        run: |
+          cp .github/workflows/release-template.md /tmp/release-notes.md
+          server="${SERVER_URL%/}"
+          sed -i "s|{{VERSION}}|${VERSION}|g" /tmp/release-notes.md
+          sed -i "s|{{BACKEND_IMAGE}}|${BACKEND_IMAGE}|g" /tmp/release-notes.md
+          sed -i "s|{{FRONTEND_IMAGE}}|${FRONTEND_IMAGE}|g" /tmp/release-notes.md
+          sed -i "s|{{FILE_BASE}}|$server/$REPOSITORY/src/branch/main|g" /tmp/release-notes.md
+
+      - name: Create Gitea Release
+        env:
+          NEW_TAG: ${{ needs.version.outputs.NEW_TAG }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SERVER: ${{ github.server_url }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          python3 -c 'import json,os; from pathlib import Path; Path("/tmp/release.json").write_text(json.dumps({"tag_name": os.environ["NEW_TAG"], "name": "Release " + os.environ["NEW_TAG"], "body": Path("/tmp/release-notes.md").read_text(), "draft": False, "prerelease": False}))'
+          code=$(curl -sS -o /tmp/release-response.json -w "%{http_code}" \
+            -X POST "$SERVER/api/v1/repos/$REPO/releases" \
+            -H "Authorization: token $TOKEN" \
+            -H "Content-Type: application/json" \
+            --data-binary @/tmp/release.json)
+          if [ "$code" != "201" ] && [ "$code" != "409" ]; then
+            cat /tmp/release-response.json
+            echo "Release API returned HTTP $code"
+            exit 1
+          fi
