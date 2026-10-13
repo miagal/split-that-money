@@ -9,8 +9,8 @@
 | Ports | Publish HTTP + HTTPS | Publish HTTP only; comment out the HTTPS block |
 | Phone TLS | Install local CA via `/offline_setup` | Public cert via your edge reverse proxy |
 
-Domain mode details: [Domain deployment](https://github.com/miagal/split-that-money/blob/main/docs/domain-deployment.md).
-Full checklists and variable tables: [README — Deploy](https://github.com/miagal/split-that-money/blob/main/README.md#deploy-to-your-server).
+Domain mode details: [Domain deployment]({{FILE_BASE}}/docs/domain-deployment.md).
+Full checklists and variable tables: [README — Deploy]({{FILE_BASE}}/README.md#deploy-to-your-server).
 
 ### 2. Set the four network anchors
 

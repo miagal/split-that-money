@@ -134,11 +134,16 @@ jobs:
 
       # Step 3: Prepare Release Notes
       - name: Prepare Release Notes
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
         run: |
           cp .github/workflows/release-template.md /tmp/release-notes.md
+          server="${SERVER_URL%/}"
           sed -i "s|{{VERSION}}|${{ env.VERSION }}|g" /tmp/release-notes.md
           sed -i "s|{{BACKEND_IMAGE}}|${{ env.BACKEND_IMAGE }}|g" /tmp/release-notes.md
           sed -i "s|{{FRONTEND_IMAGE}}|${{ env.FRONTEND_IMAGE }}|g" /tmp/release-notes.md
+          sed -i "s|{{FILE_BASE}}|$server/$REPOSITORY/blob/main|g" /tmp/release-notes.md
 
       # Step 4: Create GitHub Release
       - name: Create GitHub Release
