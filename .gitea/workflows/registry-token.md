@@ -20,7 +20,7 @@ Open the repository, then Settings, then Actions. Enable Repository Actions.
 
 ## 3. Store the secret
 
-1. Open the repository, then Settings, then Actions, then Secrets.
+1. Open the repository -> `Settings` -> `Actions` -> `Secrets`.
 2. Add a secret named `REGISTRY_TOKEN`.
 3. Paste the token as the value.
 
