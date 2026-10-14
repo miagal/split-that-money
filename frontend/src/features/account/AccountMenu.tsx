@@ -52,8 +52,8 @@ export function AccountMenu({ user }: AccountMenuProps) {
   const pendingChanges = useSyncPendingChanges()
   const { theme, setTheme } = useTheme()
   const [open, setOpen] = useState(false)
-  // Default true so Offline setup stays visible until config loads (local mode).
-  const [localCaSetup, setLocalCaSetup] = useState(true)
+  // Hidden until a live or stored config confirms local mode; the setup needs the server anyway.
+  const [localCaSetup, setLocalCaSetup] = useState(false)
   const [emailOverflow, setEmailOverflow] = useState<{
     animate: boolean
     distance: number
@@ -83,7 +83,7 @@ export function AccountMenu({ user }: AccountMenuProps) {
           : 'text-muted'
   const pendingLabel = syncPendingLabel(syncStatus, pendingChanges)
 
-  // Hide Offline setup in domain mode; keep it on config fetch failure.
+  // Shows Offline setup only in local mode.
   useEffect(() => {
     void getPublicConfig()
       .then((config) => setLocalCaSetup(config.LOCAL_CA_SETUP))

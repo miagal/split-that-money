@@ -24,7 +24,7 @@ const user = {
 function menuHarness(
   roles: Pick<typeof user, 'is_staff' | 'is_superuser'>,
   options: boolean | { online?: boolean; sessionExpired?: boolean } = {},
-  configOptions: { localCaSetup?: boolean } = {},
+  configOptions: { localCaSetup?: boolean; configFails?: boolean } = {},
 ) {
   const { online, sessionExpired } =
     typeof options === 'boolean'
@@ -33,6 +33,7 @@ function menuHarness(
           online: options.online ?? true,
           sessionExpired: options.sessionExpired ?? false,
         }
+  const configFails = configOptions.configFails ?? false
   const states: unknown[] = []
   const navigations: string[] = []
   const authCalls: string[] = []
@@ -101,6 +102,7 @@ function menuHarness(
     '../auth/auth-api.ts': {
       getPublicConfig: () => ({
         then(resolve: (config: Record<string, unknown>) => void) {
+          if (configFails) return { catch: () => undefined }
           resolve({
             ALLOW_SELF_REGISTRATION: true,
             SHELL_NETWORK_TIMEOUT_SECONDS: 3,
@@ -203,11 +205,22 @@ test('ordinary users can open Offline setup while offline and close the menu', (
 })
 
 test('hides Offline setup when local CA setup is disabled', () => {
-  const menu = menuHarness(
-    { is_staff: false, is_superuser: false },
-    true,
-    { localCaSetup: false },
+  const menu = menuHarness({ is_staff: false, is_superuser: false }, true, {
+    localCaSetup: false,
+  })
+  nodes(menu.render())
+    .find((node) => node.props['aria-label'] === 'Open account menu')!
+    .props.onClick()
+  assert.equal(
+    nodes(menu.render()).some((node) => content(node) === 'Offline setup'),
+    false,
   )
+})
+
+test('hides Offline setup until a config confirms local CA setup', () => {
+  const menu = menuHarness({ is_staff: false, is_superuser: false }, false, {
+    configFails: true,
+  })
   nodes(menu.render())
     .find((node) => node.props['aria-label'] === 'Open account menu')!
     .props.onClick()

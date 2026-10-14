@@ -2,7 +2,7 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { LogIn, LogOut } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { isTransportFailure } from '../../api/client.ts'
+import { isServerUnreachable } from '../../api/client.ts'
 import type { UserDto } from '../../api/contracts.ts'
 import { blocksAccountSwitch } from '../../app/auth-boot-rules.ts'
 import { useAuth } from '../../app/providers.tsx'
@@ -107,7 +107,7 @@ export function LoginPage() {
     void getPublicConfig()
       .then((config) => setRegistrationAllowed(config.ALLOW_SELF_REGISTRATION))
       .catch((reason: unknown) => {
-        if (isTransportFailure(reason)) return
+        if (isServerUnreachable(reason)) return
         const message = authToastMessage(reason)
         if (message) toastRef.current.error(message)
       })

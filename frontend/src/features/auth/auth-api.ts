@@ -1,5 +1,10 @@
 // Adapts session and public-config endpoints to the authentication feature's small contract.
-import { ApiClient, ApiError, isNotAuthenticated } from '../../api/client.ts'
+import {
+  ApiClient,
+  ApiError,
+  isNotAuthenticated,
+  isServerUnreachable,
+} from '../../api/client.ts'
 import type {
   LoginDto,
   PublicConfigDto,
@@ -82,13 +87,34 @@ export async function logout(options?: { timeoutMs?: number }): Promise<void> {
   }
 }
 
+const PUBLIC_CONFIG_KEY = 'split-that-money-public-config'
+
 /**
- * Reads public feature flags from the backend's real configuration endpoint.
+ * Reads public feature flags, falling back to the last stored copy while the server is unreachable.
  *
  * @returns The server-controlled public configuration.
+ * @throws {ApiError} When the server answers with a real error, or is unreachable with no stored copy.
  */
-export function getPublicConfig(): Promise<PublicConfigDto> {
-  return client.request<PublicConfigDto>('config/public/')
+export async function getPublicConfig(): Promise<PublicConfigDto> {
+  try {
+    const config = await client.request<PublicConfigDto>('config/public/')
+    try {
+      localStorage.setItem(PUBLIC_CONFIG_KEY, JSON.stringify(config))
+    } catch {
+      // Without storage the next unreachable start simply has no fallback.
+    }
+    return config
+  } catch (error) {
+    if (isServerUnreachable(error)) {
+      try {
+        const stored = localStorage.getItem(PUBLIC_CONFIG_KEY)
+        if (stored) return JSON.parse(stored) as PublicConfigDto
+      } catch {
+        // Unreadable storage behaves like no stored copy.
+      }
+    }
+    throw error
+  }
 }
 
 /**

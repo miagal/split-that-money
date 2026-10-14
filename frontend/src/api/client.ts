@@ -59,16 +59,19 @@ export class ApiError extends Error {
 }
 
 /**
- * Identifies the fetch-level failures that may safely use already persisted offline data.
+ * Identifies failures where the app server was not reached, so offline data may be used safely.
  *
  * Abort and timeout count here so a bounded session-boot request can use the same
- * offline restore path as a dropped connection.
+ * offline restore path as a dropped connection. HTTP 502/503/504 count too: in domain
+ * mode the edge proxy stays reachable and answers with these when the STM stack is down.
+ * Django never sends them itself.
  *
  * @param error - An error emitted while making an API request.
- * @returns True for a fetch TypeError, or for a DOMException named AbortError or TimeoutError.
+ * @returns True for a fetch TypeError, a DOMException named AbortError or TimeoutError, or a 502/503/504 ApiError.
  */
-export function isTransportFailure(error: unknown): boolean {
+export function isServerUnreachable(error: unknown): boolean {
   if (error instanceof TypeError) return true
+  if (error instanceof ApiError) return [502, 503, 504].includes(error.status)
   return (
     typeof DOMException !== 'undefined' &&
     error instanceof DOMException &&

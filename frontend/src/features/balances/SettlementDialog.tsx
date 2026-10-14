@@ -2,7 +2,7 @@
 import { useState, type FormEvent } from 'react'
 import { Check, X } from 'lucide-react'
 import type { MembershipDto } from '../../api/contracts.ts'
-import { useAuth, useSyncActions } from '../../app/providers.tsx'
+import { useAuth, useSyncActions, useSyncStatus } from '../../app/providers.tsx'
 import { Dialog } from '../../components/Dialog.tsx'
 import { IconButton } from '../../components/IconButton.tsx'
 import {
@@ -45,6 +45,7 @@ export function SettlementDialog({
 }: Props) {
   const { session, cacheEpoch, isCacheEpochCurrent } = useAuth()
   const { enqueue } = useSyncActions()
+  const syncStatus = useSyncStatus()
   const toast = useToast()
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
@@ -118,7 +119,8 @@ export function SettlementDialog({
       }
       onSaved()
       onClose()
-      if (navigator.onLine) toast.success('Payment recorded.')
+      if (navigator.onLine && syncStatus !== 'Server not reachable')
+        toast.success('Payment recorded.')
       else toast.info('Changes queued for sync.')
     } catch (reason) {
       const fields = inlineFields(reason)

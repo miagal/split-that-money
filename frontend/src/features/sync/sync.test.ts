@@ -139,7 +139,7 @@ test('a missing session reports session expiry instead of a sync problem', async
   )
   await controller.sync('group-1')
   assert.equal(expired, 1)
-  assert.equal(controller.getSnapshot().status, 'Synced')
+  assert.equal(controller.getSnapshot().status, 'Server not reachable')
 })
 
 test('a local storage failure needs attention', async () => {
@@ -172,13 +172,33 @@ test('conflict or error rows in the outbox need attention', async () => {
   })
 })
 
-test('waiting changes are counted in the snapshot', async () => {
+test('does not claim the server is reachable until a request succeeds', async () => {
+  setBrowserOnline(true)
+  const controller = createSyncStatusController(fakeStore(), {} as never)
+  await tick()
+  assert.equal(controller.getSnapshot().status, 'Server not reachable')
+})
+
+test('waiting changes stay counted while the server has not been reached', async () => {
   setBrowserOnline(true)
   const controller = createSyncStatusController(
     fakeStore({ pendingCount: async () => 2 }),
     {} as never,
   )
   await tick()
+  assert.deepEqual(controller.getSnapshot(), {
+    status: 'Server not reachable',
+    pending: 2,
+  })
+})
+
+test('waiting changes show once a request has reached the server', async () => {
+  setBrowserOnline(true)
+  const controller = createSyncStatusController(
+    fakeStore({ pendingCount: async () => 2 }),
+    { request: async () => emptyPull } as never,
+  )
+  await controller.sync('group-1')
   assert.deepEqual(controller.getSnapshot(), {
     status: 'Changes waiting to sync',
     pending: 2,
@@ -203,6 +223,38 @@ test('a browser without network skips the request until it is online again', asy
   await controller.online()
   assert.equal(requests, 2)
   assert.equal(controller.getSnapshot().status, 'Synced')
+})
+
+test('coming online does not claim the server is reachable before a request succeeds', async () => {
+  setBrowserOnline(false)
+  const client = {
+    request: async () => {
+      throw new TypeError('Failed to fetch')
+    },
+  }
+  const controller = createSyncStatusController(fakeStore(), client as never)
+  controller.registerGroup('group-1')
+  const states: string[] = []
+  controller.subscribe(() => states.push(controller.getSnapshot().status))
+  setBrowserOnline(true)
+  await controller.online()
+  assert.equal(states.includes('Synced'), false)
+  assert.equal(controller.getSnapshot().status, 'Server not reachable')
+})
+
+test('coming online with no registered groups keeps the server as not reachable', async () => {
+  setBrowserOnline(true)
+  let requests = 0
+  const controller = createSyncStatusController(fakeStore(), {
+    request: async () => {
+      requests += 1
+      return emptyPull
+    },
+  } as never)
+  await tick()
+  await controller.online()
+  assert.equal(requests, 0)
+  assert.equal(controller.getSnapshot().status, 'Server not reachable')
 })
 
 test('a background sync started by enqueue ends as synced', async () => {

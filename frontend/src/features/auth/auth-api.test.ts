@@ -1,8 +1,8 @@
 // Verifies session adaptation distinguishes expected authentication failures from retryable transport failures.
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { ApiError, isTransportFailure } from '../../api/client.ts'
-import { getSession, logout } from './auth-api.ts'
+import { ApiError, isServerUnreachable } from '../../api/client.ts'
+import { getPublicConfig, getSession, logout } from './auth-api.ts'
 
 test('returns null for a structured unauthenticated session response', async () => {
   const originalFetch = globalThis.fetch
@@ -93,6 +93,49 @@ test('leaves server and network session failures available for retry', async () 
   }
 })
 
+test('getPublicConfig falls back to the last stored config only when the server is unreachable', async (t) => {
+  const originalFetch = globalThis.fetch
+  const values = new Map<string, string>()
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+    },
+  })
+  t.after(() => {
+    globalThis.fetch = originalFetch
+    Reflect.deleteProperty(globalThis, 'localStorage')
+  })
+  const config = {
+    ALLOW_SELF_REGISTRATION: false,
+    SHELL_NETWORK_TIMEOUT_SECONDS: 3,
+    SYNC_REQUEST_TIMEOUT_SECONDS: 8,
+    LOCAL_CA_SETUP: false,
+  }
+  globalThis.fetch = (async () =>
+    new Response(JSON.stringify(config), { status: 200 })) as typeof fetch
+  assert.deepEqual(await getPublicConfig(), config)
+
+  globalThis.fetch = (async () =>
+    new Response(null, { status: 502 })) as typeof fetch
+  assert.deepEqual(await getPublicConfig(), config)
+
+  globalThis.fetch = (async () => {
+    throw new TypeError('Failed to fetch')
+  }) as typeof fetch
+  assert.deepEqual(await getPublicConfig(), config)
+
+  globalThis.fetch = (async () =>
+    new Response(null, { status: 500 })) as typeof fetch
+  await assert.rejects(() => getPublicConfig(), ApiError)
+
+  values.clear()
+  globalThis.fetch = (async () =>
+    new Response(null, { status: 502 })) as typeof fetch
+  await assert.rejects(() => getPublicConfig(), ApiError)
+})
+
 test(
   'getSession aborts when timeoutMs elapses',
   { timeout: 1000 },
@@ -110,7 +153,7 @@ test(
     try {
       await assert.rejects(
         () => getSession({ timeoutMs: 20 }),
-        (error: unknown) => isTransportFailure(error),
+        (error: unknown) => isServerUnreachable(error),
       )
     } finally {
       globalThis.fetch = original

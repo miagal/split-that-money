@@ -5,7 +5,7 @@ import {
   ApiClient,
   ApiError,
   isNotAuthenticated,
-  isTransportFailure,
+  isServerUnreachable,
 } from './client.ts'
 
 test('preflights unsafe writes, sends the CSRF token with credentials, and accepts 204 responses', async () => {
@@ -111,23 +111,39 @@ test('abandons an unsafe request when its auth epoch changes during CSRF preflig
 })
 
 test('treats fetch TypeError as transport failure', () => {
-  assert.equal(isTransportFailure(new TypeError('Failed to fetch')), true)
+  assert.equal(isServerUnreachable(new TypeError('Failed to fetch')), true)
 })
 
 test('treats abort and timeout DOMExceptions as transport failure', () => {
   assert.equal(
-    isTransportFailure(new DOMException('Aborted', 'AbortError')),
+    isServerUnreachable(new DOMException('Aborted', 'AbortError')),
     true,
   )
   assert.equal(
-    isTransportFailure(new DOMException('Timed out', 'TimeoutError')),
+    isServerUnreachable(new DOMException('Timed out', 'TimeoutError')),
     true,
   )
 })
 
+test('treats proxy gateway answers as an unreachable server', () => {
+  for (const status of [502, 503, 504])
+    assert.equal(
+      isServerUnreachable(new ApiError(status, 'request_failed', 'Gateway.')),
+      true,
+    )
+  assert.equal(
+    isServerUnreachable(new ApiError(500, 'server_error', 'Boom.')),
+    false,
+  )
+  assert.equal(
+    isServerUnreachable(new ApiError(400, 'validation_error', 'Bad.')),
+    false,
+  )
+})
+
 test('rejects ordinary errors as transport failure', () => {
-  assert.equal(isTransportFailure(new Error('nope')), false)
-  assert.equal(isTransportFailure(new SyntaxError('bad json')), false)
+  assert.equal(isServerUnreachable(new Error('nope')), false)
+  assert.equal(isServerUnreachable(new SyntaxError('bad json')), false)
 })
 
 test('recognizes only a missing session as not authenticated', () => {

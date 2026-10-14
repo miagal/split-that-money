@@ -24,7 +24,7 @@ import type {
   ExpenseIcon,
   MembershipDto,
 } from '../../api/contracts.ts'
-import { useAuth, useSyncActions } from '../../app/providers.tsx'
+import { useAuth, useSyncActions, useSyncStatus } from '../../app/providers.tsx'
 import { Dialog } from '../../components/Dialog.tsx'
 import { IconPickerPopover } from '../../components/IconPickerPopover.tsx'
 import { IconButton } from '../../components/IconButton.tsx'
@@ -108,6 +108,7 @@ export function ExpenseDialog({
 }: Props) {
   const { session, cacheEpoch, isCacheEpochCurrent } = useAuth()
   const { enqueue } = useSyncActions()
+  const syncStatus = useSyncStatus()
   const toast = useToast()
   const active = useMemo(
     () => members.filter((member) => member.is_active),
@@ -264,7 +265,7 @@ export function ExpenseDialog({
       }
       onSaved()
       onClose()
-      if (navigator.onLine)
+      if (navigator.onLine && syncStatus !== 'Server not reachable')
         toast.success(expense ? 'Expense updated.' : 'Expense saved.')
       else toast.info('Changes queued for sync.')
     } catch (reason) {

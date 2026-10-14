@@ -140,6 +140,11 @@ Cookie defaults stay `"true"` (HTTPS-only). Set `SESSION_COOKIE_SECURE` and `CSR
 - Install and use the PWA from **`https://stm.example.com`** (or your hostname).
 - The HTTP IP URL is optional for debugging; it is not a second offline PWA
   origin (browsers do not treat plain HTTP LAN URLs as a secure context).
+- When the STM stack is down but the edge proxy is up, the proxy answers with
+  HTTP 502/503/504. The app treats those like a lost connection: cached data
+  stays usable, changes queue for sync, the sync badge stays on Server not
+  reachable until an `/api/` request succeeds, and the last known public config
+  (stored in `localStorage`) keeps Offline setup hidden.
 
 ## Prefer local mode instead?
 

@@ -1,12 +1,13 @@
 // Sync controller: pulls and pushes group data and derives the one visible sync status.
 // The status is computed from facts (running sync, reachability, local errors, outbox counts) instead of being stored.
+// Reachability is the last /api/ outcome, not navigator.onLine: a live domain or Wi-Fi does not mean STM answered.
 // Pull and push requests abort after SYNC_REQUEST_TIMEOUT_MS so a dead server cannot leave the badge on Syncing.
 // Interacts with the outbox push, the local money store, and the API client's failure classification.
 import {
   ApiError,
   AuthEpochError,
   isNotAuthenticated,
-  isTransportFailure,
+  isServerUnreachable,
 } from '../../api/client.ts'
 import type { ApiClient } from '../../api/client.ts'
 import type { SyncPullDto, Uuid } from '../../api/contracts.ts'
@@ -162,7 +163,7 @@ export function createSyncStatusController(
     typeof navigator !== 'undefined' && !navigator.onLine
   const facts: SyncFacts = {
     syncing: false,
-    unreachable: browserOffline(),
+    unreachable: true,
     localError: false,
     attention: 0,
     pending: 0,
@@ -200,7 +201,7 @@ export function createSyncStatusController(
       onSessionExpired()
       return {}
     }
-    if (isTransportFailure(error) || error instanceof ApiError)
+    if (isServerUnreachable(error) || error instanceof ApiError)
       return { unreachable: true }
     return { localError: true }
   }
@@ -273,7 +274,7 @@ export function createSyncStatusController(
       return sequence
     },
     online: async () => {
-      publish({ unreachable: false })
+      // Browser online only retries; a successful request is what clears unreachable.
       for (const groupId of groups) await sync(groupId)
     },
     offline: () => {

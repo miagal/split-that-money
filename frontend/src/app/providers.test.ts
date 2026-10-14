@@ -465,9 +465,9 @@ test('a sync that finds no session shows the expired state', async (t) => {
   assert.equal(page.render().sessionExpired, true)
 })
 
-test('before the sync controller exists an offline browser shows the server as not reachable', (t) => {
+test('before the sync controller exists the idle snapshot does not claim the server is reachable', (t) => {
   const page = authHarness(t, { getSession: async () => user })
-  assert.equal(page.idleSyncSnapshotOf().status, 'Synced')
+  assert.equal(page.idleSyncSnapshotOf().status, 'Server not reachable')
   assert.equal(page.idleSyncSnapshotOf(), page.idleSyncSnapshotOf())
   page.navigator.onLine = false
   assert.equal(page.idleSyncSnapshotOf().status, 'Server not reachable')

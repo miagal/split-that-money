@@ -1,4 +1,4 @@
-import { ApiError, isTransportFailure } from '../../api/client.ts'
+import { ApiError, isServerUnreachable } from '../../api/client.ts'
 
 export const GENERIC_ERROR_MESSAGE = 'Could not save changes. Please try again.'
 export const AUTH_CONNECTION_MESSAGE = 'You need a connection to sign in.'
@@ -28,7 +28,7 @@ export function toastMessage(error: unknown): string | undefined {
 
 /** Sign-in never reached the server, so the toast asks for a connection instead of the generic save copy. */
 export function authToastMessage(error: unknown): string | undefined {
-  if (isTransportFailure(error)) return AUTH_CONNECTION_MESSAGE
+  if (isServerUnreachable(error)) return AUTH_CONNECTION_MESSAGE
   return toastMessage(error)
 }
 

@@ -18,7 +18,7 @@ import type { GroupDto } from '../../api/contracts.ts'
 import {
   ApiError,
   isNotAuthenticated,
-  isTransportFailure,
+  isServerUnreachable,
 } from '../../api/client.ts'
 import { useAuth, useSyncActions } from '../../app/providers.tsx'
 import { groupIconComponent, type IconComponent } from '../../lib/icons.ts'
@@ -104,7 +104,7 @@ function GroupLayoutContent({ id }: { id: string }) {
     } catch (reason) {
       if (
         offlineCacheAvailable &&
-        (isTransportFailure(reason) || isNotAuthenticated(reason))
+        (isServerUnreachable(reason) || isNotAuthenticated(reason))
       ) {
         try {
           const store = await openMoneyStore()

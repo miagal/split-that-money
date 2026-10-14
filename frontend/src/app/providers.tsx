@@ -109,25 +109,21 @@ type SyncContextValue = {
 }
 const SyncContext = createContext<SyncContextValue>({
   ready: false,
-  status: 'Synced',
+  status: 'Server not reachable',
   pendingChanges: 0,
   syncGroup: async () => undefined,
   registerGroup: () => undefined,
   unregisterGroup: () => undefined,
   enqueue: async () => 0,
 })
-const onlineIdleSnapshot: SyncSnapshot = { status: 'Synced', pending: 0 }
-const offlineIdleSnapshot: SyncSnapshot = {
+const idleSyncSnapshot: SyncSnapshot = {
   status: 'Server not reachable',
   pending: 0,
 }
 const noSyncSubscription = () => () => undefined
 
-/** Reads the badge snapshot used before the controller exists; an offline browser must not look synced. */
-export const idleSyncSnapshotOf = (): SyncSnapshot =>
-  typeof navigator !== 'undefined' && !navigator.onLine
-    ? offlineIdleSnapshot
-    : onlineIdleSnapshot
+/** Reads the badge snapshot used before the controller exists; Wi-Fi is not proof the app server answered. */
+export const idleSyncSnapshotOf = (): SyncSnapshot => idleSyncSnapshot
 
 function SyncProvider({ children }: AppProvidersProps) {
   const {
