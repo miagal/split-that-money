@@ -24,6 +24,7 @@ import { IconButton } from '../../components/IconButton.tsx'
 import { IconPickerPopover } from '../../components/IconPickerPopover.tsx'
 import { useAuth } from '../../app/providers.tsx'
 import { isGroupIcon } from '../../lib/icons.ts'
+import { moneyListRowClass } from '../../lib/pressable-row.ts'
 import { useToast } from '../feedback/ToastProvider.tsx'
 import { memberAddFeedback, toastMessage } from '../feedback/api-feedback.ts'
 import {
@@ -310,7 +311,7 @@ export function SettingsPage() {
   }
 
   return (
-    <section className="grid gap-5">
+    <section className="grid gap-8">
       {!online && (
         <p className="text-sm text-muted" role="status">
           {offlineMessage}
@@ -329,10 +330,10 @@ export function SettingsPage() {
           <p>Some settings are only available to group admins.</p>
         </aside>
       )}
-      <section className="rounded-2xl border border-border bg-surface-raised p-4 md:p-5">
-        <h2 className="text-lg font-bold">Group name</h2>
+      <section>
+        <h2 className="mb-3 text-lg font-bold">Group info</h2>
         <form
-          className="mt-4 flex gap-2"
+          className="flex items-center gap-3"
           onSubmit={(event) => {
             event.preventDefault()
             if (
@@ -455,11 +456,11 @@ export function SettingsPage() {
           </div>
         </IconPickerPopover>
       </section>
-      <section className="overflow-hidden rounded-2xl border border-border bg-surface-raised">
-        <div className="p-4 md:p-5">
-          <h2 className="text-lg font-bold">Members</h2>
+      <section>
+        <h2 className="mb-3 text-lg font-bold">Members</h2>
+        <div className="overflow-hidden rounded-xl border border-border bg-surface-raised">
           {canManage && (
-            <div className="mt-4 grid gap-3">
+            <div className="grid gap-3 border-b border-border px-4 py-2.5 md:p-4">
               <label className="grid gap-2 font-semibold">
                 Email address
                 <input
@@ -526,49 +527,49 @@ export function SettingsPage() {
               )}
             </div>
           )}
-        </div>
-        <ul className="list-enter divide-y divide-border border-t border-border">
-          {rows.map((row) => {
-            const former = !row.is_active
-            const label = fullName(row.user)
-            return (
-              <li
-                className={[
-                  'grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 p-4 md:p-5',
-                  former ? 'opacity-60' : '',
-                ].join(' ')}
-                key={row.id}
-              >
-                <Avatar member={row.user} label={label} />
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="truncate font-semibold">{label}</p>
-                    <span className="rounded-full bg-accent/10 px-2 py-0.5 text-xs font-semibold text-accent">
-                      {row.role === 'admin' ? 'Admin' : 'Member'}
-                    </span>
-                    {former && (
-                      <span className="rounded-full bg-surface px-2 py-0.5 text-xs font-semibold text-muted">
-                        Left
+          <ul className="list-enter divide-y divide-border">
+            {rows.map((row) => {
+              const former = !row.is_active
+              const label = fullName(row.user)
+              return (
+                <li
+                  className={[
+                    moneyListRowClass,
+                    former ? 'opacity-60' : '',
+                  ].join(' ')}
+                  key={row.id}
+                >
+                  <Avatar member={row.user} label={label} />
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="truncate font-semibold">{label}</p>
+                      <span className="rounded-full bg-accent/10 px-2 py-0.5 text-xs font-semibold text-accent">
+                        {row.role === 'admin' ? 'Admin' : 'Member'}
                       </span>
-                    )}
+                      {former && (
+                        <span className="rounded-full bg-surface px-2 py-0.5 text-xs font-semibold text-muted">
+                          Left
+                        </span>
+                      )}
+                    </div>
+                    <MemberEmail email={row.user.email} />
                   </div>
-                  <MemberEmail email={row.user.email} />
-                </div>
-                {canManage && row.is_active && row.user.id !== session?.id && (
-                  <button
-                    className="rounded-lg p-2 text-danger focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger"
-                    type="button"
-                    aria-label={`Remove ${label}`}
-                    disabled={!online || busy}
-                    onClick={() => setPendingRemoval(row)}
-                  >
-                    <UserMinus aria-hidden size={18} />
-                  </button>
-                )}
-              </li>
-            )
-          })}
-        </ul>
+                  {canManage && row.is_active && row.user.id !== session?.id && (
+                    <button
+                      className="rounded-lg p-2 text-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
+                      type="button"
+                      aria-label={`Remove ${label}`}
+                      disabled={!online || busy}
+                      onClick={() => setPendingRemoval(row)}
+                    >
+                      <UserMinus aria-hidden size={18} />
+                    </button>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        </div>
       </section>
       <section className="rounded-2xl border border-border bg-surface-raised p-4 md:p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
