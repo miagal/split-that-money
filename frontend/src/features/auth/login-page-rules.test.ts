@@ -356,7 +356,7 @@ test('device sign-out drops the resume card and shows the password form', async 
       node.type === 'button' && content(node) === 'Sign out',
   )
   assert.ok(signOut)
-  assert.match(String(signOut.props.className), /text-danger/)
+  assert.match(String(signOut.props.className), /text-red-600/)
   await signOut.props.onClick()
   const confirm = nodes(page.render()).find(
     (node) =>

@@ -205,7 +205,7 @@ export function AdminUsersPage() {
                   key={user.id}
                 >
                   <button
-                    className={`swipe-reveal-action grid place-items-center text-white md:hidden ${user.is_active ? 'bg-danger' : 'bg-accent'}`}
+                    className={`swipe-reveal-action grid place-items-center text-white md:hidden ${user.is_active ? 'bg-red-600' : 'bg-accent'}`}
                     type="button"
                     aria-label={`${user.is_active ? 'Deactivate' : 'Reactivate'} ${user.display_name}`}
                     disabled={busy}
@@ -268,7 +268,7 @@ export function AdminUsersPage() {
                     </div>
                     {user.is_active ? (
                       <button
-                        className="hidden rounded-lg p-2 text-danger focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger md:block"
+                        className="hidden rounded-lg p-2 text-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 md:block"
                         type="button"
                         aria-label={`Deactivate ${user.display_name}`}
                         disabled={busy}

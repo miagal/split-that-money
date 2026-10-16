@@ -10,7 +10,7 @@ type ButtonProps = ComponentPropsWithoutRef<'button'> & {
 const variantClasses: Record<ButtonVariant, string> = {
   primary: 'border border-accent bg-accent text-accent-contrast',
   secondary: 'border border-border bg-surface-raised text-foreground',
-  danger: 'border border-danger text-danger',
+  danger: 'border border-red-600 text-red-600',
   text: 'border border-transparent text-accent',
 }
 
