@@ -2,8 +2,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  swipeIsVerticalScroll,
   swipeOffset,
   swipeRevealState,
+  swipeShouldCapture,
   swipeShouldSuppressActivation,
 } from './swipe-reveal.ts'
 
@@ -34,4 +36,64 @@ test('swipe stays closed for rightward and short leftward travel', () => {
 test('suppresses row activation only after a revealed swipe', () => {
   assert.equal(swipeShouldSuppressActivation('revealed'), true)
   assert.equal(swipeShouldSuppressActivation('closed'), false)
+})
+
+test('treats dominant vertical travel as scroll instead of a swipe', () => {
+  assert.equal(
+    swipeIsVerticalScroll({
+      startX: 160,
+      startY: 100,
+      currentX: 162,
+      currentY: 130,
+    }),
+    true,
+  )
+  assert.equal(
+    swipeIsVerticalScroll({
+      startX: 280,
+      startY: 100,
+      currentX: 200,
+      currentY: 104,
+    }),
+    false,
+  )
+  assert.equal(
+    swipeIsVerticalScroll({
+      startX: 160,
+      startY: 100,
+      currentX: 160,
+      currentY: 104,
+    }),
+    false,
+  )
+})
+
+test('captures only after clear leftward swipe intent', () => {
+  assert.equal(
+    swipeShouldCapture({
+      startX: 280,
+      startY: 100,
+      currentX: 260,
+      currentY: 102,
+    }),
+    true,
+  )
+  assert.equal(
+    swipeShouldCapture({
+      startX: 280,
+      startY: 100,
+      currentX: 278,
+      currentY: 100,
+    }),
+    false,
+  )
+  assert.equal(
+    swipeShouldCapture({
+      startX: 160,
+      startY: 100,
+      currentX: 140,
+      currentY: 130,
+    }),
+    false,
+  )
 })

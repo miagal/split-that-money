@@ -1,4 +1,4 @@
-// Supplies the narrow pointer state needed to reveal one mobile expense-row action at a time.
+// Pointer state for one mobile swipe-to-reveal row action at a time.
 import { useRef, useState, type PointerEvent } from 'react'
 
 export type SwipeState = 'closed' | 'revealed'
@@ -8,6 +8,9 @@ export type SwipeInput = {
   currentX: number
   width: number
 }
+
+/** Pixels of leftward travel before a touch gesture commits to swipe (vs scroll). */
+export const SWIPE_CAPTURE_THRESHOLD_PX = 8
 
 /**
  * Decides whether a completed horizontal pointer gesture reveals the row action.
@@ -34,6 +37,44 @@ export function swipeOffset({
   return distance > 0 ? -Math.min(distance, 72) : 0
 }
 
+/** Detects dominant vertical travel so the gesture is left to native scroll. */
+export function swipeIsVerticalScroll({
+  startX,
+  startY,
+  currentX,
+  currentY,
+  threshold = 8,
+}: {
+  startX: number
+  startY: number
+  currentX: number
+  currentY: number
+  threshold?: number
+}): boolean {
+  const dx = Math.abs(currentX - startX)
+  const dy = Math.abs(currentY - startY)
+  return dy > dx && dy >= threshold
+}
+
+/** True once leftward travel clearly means swipe-to-delete, not a vertical scroll. */
+export function swipeShouldCapture({
+  startX,
+  startY,
+  currentX,
+  currentY,
+  threshold = SWIPE_CAPTURE_THRESHOLD_PX,
+}: {
+  startX: number
+  startY: number
+  currentX: number
+  currentY: number
+  threshold?: number
+}): boolean {
+  const left = startX - currentX
+  const dy = Math.abs(currentY - startY)
+  return left >= threshold && left > dy
+}
+
 /**
  * Decides whether a completed pointer gesture must consume its following click.
  *
@@ -47,10 +88,13 @@ export function swipeShouldSuppressActivation(state: SwipeState): boolean {
 type SwipeStart = {
   id: string
   x: number
+  y: number
 }
 
 /**
- * Leaves nested controls in charge of their own pointer and keyboard events.
+ * Leaves nested controls in charge of their own pointer and keyboard events
+ * when the swipe content shell is also the pressable surface (admin rows).
+ *
  * @param event - The originating target and the row handling the bubbled event.
  * @returns Whether a nested control owns the event instead of the row.
  */
@@ -65,9 +109,13 @@ export function isNestedInteractiveTarget(event: {
 }
 
 /**
- * Tracks the one expense row whose left-swipe action is currently revealed.
+ * Tracks the one list row whose left-swipe action is currently revealed.
  *
- * @returns The revealed row ID, a close action, and pointer-capturing handlers for each row.
+ * Swipe lives on a non-focusable content shell; activation (edit) stays on an
+ * inner `<button>`. Pointer capture waits until leftward travel beats scroll so
+ * vertical `pan-y` stays native.
+ *
+ * @returns The revealed row ID, a close action, and pointer handlers for each row.
  */
 export function useSwipeReveal() {
   const [revealedId, setRevealedId] = useState<string | null>(null)
@@ -78,27 +126,57 @@ export function useSwipeReveal() {
   const startRef = useRef<SwipeStart | null>(null)
   const suppressActivationRef = useRef(false)
 
-  /** Captures phone touch gestures so release stays associated with their row. */
+  /** Starts tracking a phone touch without capturing — scroll stays free until swipe wins. */
   function onPointerDown(id: string) {
     return (event: PointerEvent<HTMLElement>): void => {
       suppressActivationRef.current = false
       if (
         event.pointerType !== 'touch' ||
-        !window.matchMedia('(max-width: 767px)').matches ||
-        isNestedInteractiveTarget(event)
+        !window.matchMedia('(max-width: 767px)').matches
+      )
+        return
+      // The revealed delete control is a sibling action; ignore if hit somehow.
+      const target = event.target as Element
+      if (
+        typeof target.closest === 'function' &&
+        target.closest('.swipe-reveal-action')
       )
         return
       setRevealedId(null)
-      startRef.current = { id, x: event.clientX }
-      event.currentTarget.setPointerCapture(event.pointerId)
+      startRef.current = { id, x: event.clientX, y: event.clientY }
     }
   }
 
-  /** Mirrors leftward finger travel so the delete action appears before release. */
+  /** Commits to swipe only after clear leftward travel; abandons on vertical scroll. */
   function onPointerMove(id: string) {
     return (event: PointerEvent<HTMLElement>): void => {
       const start = startRef.current
       if (!start || start.id !== id) return
+      if (
+        swipeIsVerticalScroll({
+          startX: start.x,
+          startY: start.y,
+          currentX: event.clientX,
+          currentY: event.clientY,
+        })
+      ) {
+        if (event.currentTarget.hasPointerCapture(event.pointerId))
+          event.currentTarget.releasePointerCapture(event.pointerId)
+        startRef.current = null
+        setDragging(null)
+        return
+      }
+      if (
+        !swipeShouldCapture({
+          startX: start.x,
+          startY: start.y,
+          currentX: event.clientX,
+          currentY: event.clientY,
+        })
+      )
+        return
+      if (!event.currentTarget.hasPointerCapture(event.pointerId))
+        event.currentTarget.setPointerCapture(event.pointerId)
       setDragging({
         id,
         offset: swipeOffset({ startX: start.x, currentX: event.clientX }),
