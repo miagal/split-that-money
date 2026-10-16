@@ -22,13 +22,24 @@ import type {
   SuggestedTransferDto,
 } from '../../api/contracts.ts'
 import { useAuth, useSyncStatus } from '../../app/providers.tsx'
+import { MoneyRowMark } from '../../components/MoneyRowMark.tsx'
 import { expenseIconComponent } from '../../lib/icons.ts'
 import { formatMoney } from '../../lib/money.ts'
 import { compactNames } from '../../lib/names.ts'
+import {
+  blurAfterPress,
+  blurOnTouchScroll,
+  moneyListRowClass,
+  pressableMoneyRowClass,
+} from '../../lib/pressable-row.ts'
 import { computeBalances, suggestTransfers } from '../balances/balances.ts'
 import { SettlementDialog } from '../balances/SettlementDialog.tsx'
 import { ExpenseDialog } from '../expenses/ExpenseDialog.tsx'
 import { openMoneyStore } from '../sync/database.ts'
+import {
+  entityOutboxStatus,
+  type OutboxSyncStatus,
+} from '../sync/pending-marks.ts'
 import { useGroup } from './group-context.ts'
 import {
   balanceLabel,
@@ -60,8 +71,16 @@ export function OverviewPage() {
   const syncStatus = useSyncStatus()
   const [expenses, setExpenses] = useState<ExpenseDto[]>([])
   const [settlements, setSettlements] = useState<SettlementDto[]>([])
+  const [expenseSync, setExpenseSync] = useState(
+    () => new Map<string, OutboxSyncStatus>(),
+  )
+  const [settlementSync, setSettlementSync] = useState(
+    () => new Map<string, OutboxSyncStatus>(),
+  )
   const [settlementDialog, setSettlementDialog] = useState(false)
   const [expenseDialog, setExpenseDialog] = useState(false)
+  const [editingExpense, setEditingExpense] = useState<ExpenseDto>()
+  const [editingSettlement, setEditingSettlement] = useState<SettlementDto>()
   const [settlementPrefill, setSettlementPrefill] =
     useState<SettlementPrefill>()
   const [initialListLoadComplete, setInitialListLoadComplete] = useState(false)
@@ -69,8 +88,15 @@ export function OverviewPage() {
   const load = useCallback(() => {
     void openMoneyStore().then(async (store) => {
       try {
-        setExpenses(await store.getExpenses(group.id))
-        setSettlements(await store.getSettlements(group.id))
+        const [storedExpenses, storedSettlements, pending] = await Promise.all([
+          store.getExpenses(group.id),
+          store.getSettlements(group.id),
+          store.listPending(group.id),
+        ])
+        setExpenses(storedExpenses)
+        setSettlements(storedSettlements)
+        setExpenseSync(entityOutboxStatus(pending, 'expense'))
+        setSettlementSync(entityOutboxStatus(pending, 'settlement'))
       } finally {
         store.close()
         setInitialListLoadComplete(true)
@@ -112,17 +138,31 @@ export function OverviewPage() {
     balance > 0
       ? 'text-emerald-300'
       : balance < 0
-        ? 'text-rose-300'
+        ? 'text-red-400'
         : 'text-white',
   ].join(' ')
 
   /** Opens one generated payment with its sender, receiver, and total already selected. */
   function openSuggestedPayment(transfer: SuggestedTransferDto): void {
+    setEditingSettlement(undefined)
     setSettlementPrefill({
       initialFrom: transfer.from_user_id,
       initialTo: transfer.to_user_id,
       initialAmountCents: transfer.amount_cents,
     })
+    setSettlementDialog(true)
+  }
+
+  /** Opens the expense editor for one Latest activity row. */
+  function editExpense(expense: ExpenseDto): void {
+    setEditingExpense(expense)
+    setExpenseDialog(true)
+  }
+
+  /** Opens the payment editor for one Latest activity settlement row. */
+  function editSettlement(settlement: SettlementDto): void {
+    setSettlementPrefill(undefined)
+    setEditingSettlement(settlement)
     setSettlementDialog(true)
   }
 
@@ -133,7 +173,10 @@ export function OverviewPage() {
         className="grid size-10 place-items-center rounded-full bg-accent text-accent-contrast"
         type="button"
         aria-label="Add expense"
-        onClick={() => setExpenseDialog(true)}
+        onClick={() => {
+          setEditingExpense(undefined)
+          setExpenseDialog(true)
+        }}
       >
         <Plus aria-hidden size={20} />
       </button>,
@@ -148,13 +191,21 @@ export function OverviewPage() {
           className="fixed bottom-4 right-[1.125rem] z-30 grid size-11 place-items-center rounded-full bg-accent text-accent-contrast md:hidden"
           type="button"
           aria-label="Add expense"
-          onClick={() => setExpenseDialog(true)}
+          onClick={() => {
+            setEditingExpense(undefined)
+            setExpenseDialog(true)
+          }}
         >
           <Plus aria-hidden size={20} />
         </button>
       )}
       <div className="grid gap-4 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
-        <article className="flex items-center justify-between gap-5 rounded-2xl bg-slate-950 px-5 py-4 text-white md:py-3">
+        <article
+          className={`flex items-center justify-between gap-5 rounded-2xl border border-white/15 bg-slate-950 px-5 py-4 text-white ${
+            // Match settle-up height on desktop when more than one payment row is shown.
+            outgoing.length > 1 ? 'md:self-end md:py-5' : 'md:py-3'
+          }`}
+        >
           <div>
             <p className="text-sm text-white/70">Your balance</p>
             <p className="mt-1 text-sm text-white/70">
@@ -178,30 +229,27 @@ export function OverviewPage() {
               {outgoing.length === 0 ? (
                 <p className="empty-state">You are all settled.</p>
               ) : (
-                <ul className="min-h-[4.5rem] overflow-hidden rounded-2xl border border-border bg-surface-raised">
+                <ul className="min-h-[4.5rem] divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface-raised">
                   {outgoing.map((transfer) => (
                     <li key={`${transfer.from_user_id}-${transfer.to_user_id}`}>
                       <button
-                        className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-2 text-left hover:bg-accent/10"
+                        className={pressableMoneyRowClass}
                         type="button"
                         aria-label={`Pay ${memberName(transfer.to_user_id)}`}
-                        onClick={() => openSuggestedPayment(transfer)}
+                        onClick={(event) => {
+                          openSuggestedPayment(transfer)
+                          blurAfterPress(event)
+                        }}
+                        onTouchMove={blurOnTouchScroll}
                       >
-                        <span className="min-w-0">
-                          <span className="block truncate font-semibold">
-                            Pay {memberName(transfer.to_user_id)}
-                          </span>
-                          <span className="block text-sm text-muted">
-                            Suggested payment
-                          </span>
+                        <MoneyRowMark>
+                          <Handshake aria-hidden size={18} />
+                        </MoneyRowMark>
+                        <span className="min-w-0 truncate font-semibold">
+                          Pay {memberName(transfer.to_user_id)}
                         </span>
-                        <span className="flex shrink-0 items-center gap-2">
-                          <span className="grid size-8 place-items-center rounded-full bg-accent/10 text-accent">
-                            <Handshake aria-hidden size={17} />
-                          </span>
-                          <span className="font-semibold tabular-nums">
-                            {formatMoney(transfer.amount_cents, group.currency)}
-                          </span>
+                        <span className="shrink-0 font-semibold tabular-nums">
+                          {formatMoney(transfer.amount_cents, group.currency)}
                         </span>
                       </button>
                     </li>
@@ -235,6 +283,9 @@ export function OverviewPage() {
                       expense={item.record}
                       memberName={memberName}
                       currency={group.currency}
+                      syncStatus={expenseSync.get(item.record.id)}
+                      editable={canManageMoney}
+                      onEdit={editExpense}
                     />
                   ) : (
                     <ActivitySettlement
@@ -242,6 +293,9 @@ export function OverviewPage() {
                       settlement={item.record}
                       memberName={memberName}
                       currency={group.currency}
+                      syncStatus={settlementSync.get(item.record.id)}
+                      editable={canManageMoney}
+                      onEdit={editSettlement}
                     />
                   ),
                 )}
@@ -255,9 +309,18 @@ export function OverviewPage() {
         groupId={group.id}
         currency={group.currency}
         members={group.memberships}
-        initialFrom={settlementPrefill?.initialFrom ?? session?.id}
-        initialTo={settlementPrefill?.initialTo}
-        initialAmountCents={settlementPrefill?.initialAmountCents}
+        settlement={editingSettlement}
+        initialFrom={
+          editingSettlement
+            ? undefined
+            : (settlementPrefill?.initialFrom ?? session?.id)
+        }
+        initialTo={editingSettlement ? undefined : settlementPrefill?.initialTo}
+        initialAmountCents={
+          editingSettlement
+            ? undefined
+            : settlementPrefill?.initialAmountCents
+        }
         onClose={() => setSettlementDialog(false)}
         onSaved={load}
       />
@@ -266,6 +329,7 @@ export function OverviewPage() {
         groupId={group.id}
         currency={group.currency}
         members={group.memberships}
+        expense={editingExpense}
         onClose={() => setExpenseDialog(false)}
         onSaved={load}
       />
@@ -278,23 +342,49 @@ function ActivityExpense({
   expense,
   memberName,
   currency,
+  syncStatus,
+  editable,
+  onEdit,
 }: {
   expense: ExpenseDto
   memberName: (id: string) => string
   currency: string
+  syncStatus?: OutboxSyncStatus
+  editable: boolean
+  onEdit: (expense: ExpenseDto) => void
 }) {
-  return (
-    <li className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 p-4">
-      <ExpenseMark icon={expense.icon} />
-      <div className="min-w-0">
-        <p className="truncate font-semibold">{expense.title}</p>
-        <p className="truncate text-sm text-muted">
+  const body = (
+    <>
+      <ExpenseMark icon={expense.icon} syncStatus={syncStatus} />
+      <span className="min-w-0">
+        <span className="block truncate font-semibold">{expense.title}</span>
+        <span className="block truncate text-sm text-muted">
           {expense.date} · {memberName(expense.payer)}
-        </p>
-      </div>
+        </span>
+      </span>
       <span className="shrink-0 font-semibold tabular-nums">
         {formatMoney(expense.amount_cents, currency)}
       </span>
+    </>
+  )
+  if (!editable)
+    return (
+      <li className={moneyListRowClass}>{body}</li>
+    )
+  return (
+    <li>
+      <button
+        className={pressableMoneyRowClass}
+        type="button"
+        aria-label={`Edit ${expense.title}`}
+        onClick={(event) => {
+          onEdit(expense)
+          blurAfterPress(event)
+        }}
+        onTouchMove={blurOnTouchScroll}
+      >
+        {body}
+      </button>
     </li>
   )
 }
@@ -304,36 +394,68 @@ function ActivitySettlement({
   settlement,
   memberName,
   currency,
+  syncStatus,
+  editable,
+  onEdit,
 }: {
   settlement: SettlementDto
   memberName: (id: string) => string
   currency: string
+  syncStatus?: OutboxSyncStatus
+  editable: boolean
+  onEdit: (settlement: SettlementDto) => void
 }) {
-  return (
-    <li className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 p-4">
-      <span className="grid size-9 place-items-center rounded-full bg-accent/10 text-accent">
+  const body = (
+    <>
+      <MoneyRowMark syncStatus={syncStatus}>
         <HandCoins aria-hidden size={18} />
-      </span>
-      <div className="min-w-0">
-        <p className="truncate font-semibold">
+      </MoneyRowMark>
+      <span className="min-w-0">
+        <span className="block truncate font-semibold">
           {memberName(settlement.from_user)} paid{' '}
           {memberName(settlement.to_user)}
-        </p>
-        <p className="truncate text-sm text-muted">Payment</p>
-      </div>
+        </span>
+        <span className="block truncate text-sm text-muted">Payment</span>
+      </span>
       <span className="shrink-0 font-semibold tabular-nums">
         {formatMoney(settlement.amount_cents, currency)}
       </span>
+    </>
+  )
+  if (!editable)
+    return (
+      <li className={moneyListRowClass}>{body}</li>
+    )
+  return (
+    <li>
+      <button
+        className={pressableMoneyRowClass}
+        type="button"
+        aria-label={`Edit payment from ${memberName(settlement.from_user)} to ${memberName(settlement.to_user)}`}
+        onClick={(event) => {
+          onEdit(settlement)
+          blurAfterPress(event)
+        }}
+        onTouchMove={blurOnTouchScroll}
+      >
+        {body}
+      </button>
     </li>
   )
 }
 
 /** Renders an expense category marker matching the Expenses list treatment. */
-function ExpenseMark({ icon }: { icon: ExpenseDto['icon'] }) {
+function ExpenseMark({
+  icon,
+  syncStatus,
+}: {
+  icon: ExpenseDto['icon']
+  syncStatus?: OutboxSyncStatus
+}) {
   const Icon = expenseIcons[expenseIconComponent(icon)] ?? CircleHelp
   return (
-    <span className="grid size-9 place-items-center rounded-full bg-accent/10 text-accent">
+    <MoneyRowMark syncStatus={syncStatus}>
       <Icon aria-hidden size={18} />
-    </span>
+    </MoneyRowMark>
   )
 }

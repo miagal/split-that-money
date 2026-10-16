@@ -10,6 +10,8 @@ import * as groupRules from './group-view-rules.ts'
 import * as groupsPageRules from './groups-page-rules.ts'
 import * as balanceRules from '../balances/balances.ts'
 import * as insightRules from '../insights/insights.ts'
+import * as expenseListRules from '../expenses/expense-list-rules.ts'
+import * as expenseSubmitRules from '../expenses/expense-submit-rules.ts'
 import * as money from '../../lib/money.ts'
 import * as names from '../../lib/names.ts'
 import type { GroupDto, UserDto } from '../../api/contracts.ts'
@@ -107,6 +109,7 @@ type PageHarnessOptions = {
     getGroup?: (groupId: string) => Promise<typeof group | undefined>
     getExpenses?: (groupId: string) => Promise<(typeof expense)[]>
     getSettlements?: (groupId: string) => Promise<unknown[]>
+    listPending?: (groupId: string) => Promise<unknown[]>
     close?: () => void
   }
 }
@@ -164,6 +167,7 @@ function pageHarness(
       return []
     },
     getSettlements: async (_groupId: string) => [],
+    listPending: async (_groupId: string) => [],
     close() {},
     ...options.moneyStore,
   }
@@ -282,12 +286,25 @@ function pageHarness(
     './balances.ts': balanceRules,
     '../balances/balances.ts': balanceRules,
     './insights.ts': insightRules,
+    './expense-list-rules.ts': expenseListRules,
+    '../expenses/expense-list-rules.ts': expenseListRules,
+    './expense-submit-rules.ts': expenseSubmitRules,
+    '../expenses/expense-submit-rules.ts': expenseSubmitRules,
     '../../lib/money.ts': money,
     '../../lib/names.ts': names,
+    '../../lib/icons.ts': {
+      expenseIconComponent: () => 'CircleHelp',
+    },
     './group-api.ts': groupApiStubs,
     './group-icon-choices.ts': { groupIconChoices },
     './member-search-rules.ts': memberSearchRules,
     '../sync/database.ts': { openMoneyStore: async () => store },
+    '../sync/pending-marks.ts': {
+      entityOutboxStatus: () => new Map(),
+    },
+    '../../components/MoneyRowMark.tsx': {
+      MoneyRowMark: ({ children }: { children?: unknown }) => children ?? null,
+    },
     'react-router-dom': { useNavigate: () => () => {}, Link: 'a' },
   }
   /** Transpiles TSX without introducing a separate renderer or compiler dependency. */
@@ -617,7 +634,7 @@ test('local list pages stay empty until their first read resolves, then use the 
   )
   assert.match(
     settings,
-    /<ul className="list-enter divide-y divide-border border-t border-border">/,
+    /<ul className="list-enter divide-y divide-border">/,
   )
 })
 
@@ -694,72 +711,72 @@ function content(root: unknown): string {
     : ''
 }
 
-for (const key of ['Enter', ' ']) {
-  test(`desktop Delete ${JSON.stringify(key)} keeps the editor closed and opens confirmation`, () => {
-    const page = pageHarness('../expenses/ExpensesPage.tsx', [
-      null,
-      null,
-      [expense],
-      [],
-      undefined,
-      false,
-      undefined,
-      false,
-      20,
-      true,
-    ])
-    let tree = nodes(page.render())
-    const row = tree.find((node) => node.props['aria-label'] === 'Edit Lunch')!
-    const button = nodes(row).find(
-      (node) => node.props['aria-label'] === 'Delete Lunch',
-    )!
-    const target = { closest: () => target }
-    let prevented = false
-    row.props.onKeyDown({
-      key,
-      target,
-      currentTarget: {},
-      preventDefault() {
-        prevented = true
-      },
-    })
-    assert.equal(
-      prevented,
-      false,
-      'row must preserve native button keyboard activation',
-    )
-    button.props.onClick({ stopPropagation() {} })
-    tree = nodes(page.render())
-    assert.equal(
-      tree.find((node) => 'onRequestDelete' in node.props)!.props.open,
-      false,
-    )
-    assert.equal(
-      tree.find((node) => node.props.title === 'Delete expense')!.props.open,
-      true,
-    )
-  })
-}
-
-test('desktop Delete mouse pointer does not get captured by the row', () => {
+test('desktop Delete keeps the editor closed and opens confirmation', () => {
   const page = pageHarness('../expenses/ExpensesPage.tsx', [
     null,
     null,
     [expense],
     [],
+    new Map(),
+    new Map(),
     undefined,
+    undefined,
+    false,
     false,
     undefined,
     false,
     20,
     true,
   ])
-  const row = nodes(page.render()).find(
-    (node) => node.props['aria-label'] === 'Edit Lunch',
+  const tree = nodes(page.render())
+  const edit = tree.find((node) => node.props['aria-label'] === 'Edit Lunch')!
+  assert.equal(
+    edit.props.onKeyDown,
+    undefined,
+    'edit control must be a native button without custom key handling',
+  )
+  const deleteButton = tree.find(
+    (node) =>
+      node.props['aria-label'] === 'Delete Lunch' &&
+      String(node.props.className ?? '').includes('md:block'),
   )!
-  const target = { closest: () => target }
+  deleteButton.props.onClick()
+  assert.equal(
+    nodes(page.render()).find((node) => 'onRequestDelete' in node.props)!.props
+      .open,
+    false,
+  )
+  assert.equal(
+    nodes(page.render()).find((node) => node.props.title === 'Delete expense')!
+      .props.open,
+    true,
+  )
+})
+
+test('desktop Delete mouse pointer does not get captured by the swipe shell', () => {
+  const page = pageHarness('../expenses/ExpensesPage.tsx', [
+    null,
+    null,
+    [expense],
+    [],
+    new Map(),
+    new Map(),
+    undefined,
+    undefined,
+    false,
+    false,
+    undefined,
+    false,
+    20,
+    true,
+  ])
+  const tree = nodes(page.render())
+  const shell = tree.find((node) =>
+    String(node.props.className ?? '').includes('swipe-reveal-content'),
+  )!
+  const target = { closest: () => null }
   let captured = false
-  row.props.onPointerDown({
+  shell.props.onPointerDown({
     pointerType: 'mouse',
     target,
     currentTarget: {
@@ -769,35 +786,48 @@ test('desktop Delete mouse pointer does not get captured by the row', () => {
     },
   })
   assert.equal(captured, false)
-  row.props.onClick({ target, currentTarget: {} })
+  tree
+    .find((node) => node.props['aria-label'] === 'Edit Lunch')!
+    .props.onClick({})
   assert.equal(
     nodes(page.render()).find((node) => 'onRequestDelete' in node.props)!.props
       .open,
-    false,
-  )
-  nodes(row)
-    .find((node) => node.props['aria-label'] === 'Delete Lunch')!
-    .props.onClick({ stopPropagation() {} })
-  assert.equal(
-    nodes(page.render()).find((node) => node.props.title === 'Delete expense')!
-      .props.open,
     true,
   )
 })
 
-test('only phone touch swipes capture the row and suppress the following edit click', () => {
+test('only phone touch swipes capture the shell and suppress the following edit click', () => {
   for (const mobile of [true, false]) {
     const page = pageHarness(
       '../expenses/ExpensesPage.tsx',
-      [null, null, [expense], [], undefined, false, undefined, false, 20, true],
+      [
+        null,
+        null,
+        [expense],
+        [],
+        new Map(),
+        new Map(),
+        undefined,
+        undefined,
+        false,
+        false,
+        undefined,
+        false,
+        20,
+        true,
+      ],
       mobile,
     )
-    const row = nodes(page.render()).find(
+    const tree = nodes(page.render())
+    const shell = tree.find((node) =>
+      String(node.props.className ?? '').includes('swipe-reveal-content'),
+    )!
+    const edit = tree.find(
       (node) => node.props['aria-label'] === 'Edit Lunch',
     )!
     let captured = false
     const target = {
-      closest: () => target,
+      closest: () => null,
       setPointerCapture() {
         captured = true
       },
@@ -811,12 +841,17 @@ test('only phone touch swipes capture the row and suppress the following edit cl
       pointerType: 'touch',
       pointerId: 1,
       clientX: 280,
+      clientY: 100,
       target,
       currentTarget: target,
     }
-    row.props.onPointerDown(event)
-    assert.equal(captured, mobile)
-    row.props.onPointerUp({ ...event, clientX: 100 })
+    shell.props.onPointerDown(event)
+    assert.equal(captured, false)
+    if (mobile) {
+      shell.props.onPointerMove({ ...event, clientX: 240, clientY: 102 })
+      assert.equal(captured, true)
+    }
+    shell.props.onPointerUp({ ...event, clientX: 100 })
     assert.equal(captured, false)
     assert.equal(
       nodes(page.render()).find(
@@ -824,7 +859,7 @@ test('only phone touch swipes capture the row and suppress the following edit cl
       )!.props['data-revealed'],
       mobile,
     )
-    row.props.onClick(event)
+    edit.props.onClick(event)
     assert.equal(
       nodes(page.render()).find((node) => 'onRequestDelete' in node.props)!
         .props.open,
@@ -833,29 +868,75 @@ test('only phone touch swipes capture the row and suppress the following edit cl
   }
 })
 
-test('a row keyboard activation still opens the editor', () => {
+test('vertical scroll on the swipe shell never captures the pointer', () => {
+  const page = pageHarness(
+    '../expenses/ExpensesPage.tsx',
+    [
+      null,
+      null,
+      [expense],
+      [],
+      new Map(),
+      new Map(),
+      undefined,
+      undefined,
+      false,
+      false,
+      undefined,
+      false,
+      20,
+      true,
+    ],
+    true,
+  )
+  const shell = nodes(page.render()).find((node) =>
+    String(node.props.className ?? '').includes('swipe-reveal-content'),
+  )!
+  let captured = false
+  const target = {
+    closest: () => null,
+    setPointerCapture() {
+      captured = true
+    },
+    hasPointerCapture: () => captured,
+    releasePointerCapture() {
+      captured = false
+    },
+    getBoundingClientRect: () => ({ width: 320 }),
+  }
+  const down = {
+    pointerType: 'touch',
+    pointerId: 1,
+    clientX: 160,
+    clientY: 100,
+    target,
+    currentTarget: target,
+  }
+  shell.props.onPointerDown(down)
+  shell.props.onPointerMove({ ...down, clientX: 162, clientY: 140 })
+  assert.equal(captured, false)
+})
+
+test('pressing the edit button opens the editor', () => {
   const page = pageHarness('../expenses/ExpensesPage.tsx', [
     null,
     null,
     [expense],
     [],
+    new Map(),
+    new Map(),
     undefined,
+    undefined,
+    false,
     false,
     undefined,
     false,
     20,
     true,
   ])
-  const row = nodes(page.render()).find(
-    (node) => node.props['aria-label'] === 'Edit Lunch',
-  )!
-  const target = { closest: () => target }
-  row.props.onKeyDown({
-    key: 'Enter',
-    target,
-    currentTarget: target,
-    preventDefault() {},
-  })
+  nodes(page.render())
+    .find((node) => node.props['aria-label'] === 'Edit Lunch')!
+    .props.onClick({})
   assert.equal(
     nodes(page.render()).find((node) => 'onRequestDelete' in node.props)!.props
       .open,
@@ -882,8 +963,12 @@ test('Overview opens outgoing suggested payments with their prefilled values', (
   const page = pageHarness('./OverviewPage.tsx', [
     [outgoingTransferExpense],
     [],
+    new Map(),
+    new Map(),
     false,
     false,
+    undefined,
+    undefined,
     undefined,
     true,
   ])
@@ -892,8 +977,8 @@ test('Overview opens outgoing suggested payments with their prefilled values', (
   )
   assert.ok(action, 'outgoing payment must be a labelled action')
   assert.ok(
-    content(action).includes('Suggested payment'),
-    'outgoing payment needs its clarifying label',
+    content(action).includes('Pay Julia'),
+    'outgoing payment needs its visible pay label',
   )
   action.props.onClick()
   const dialog = nodes(page.render()).find(
@@ -908,8 +993,12 @@ test('Overview omits incoming suggested-payment text and its action', () => {
   const page = pageHarness('./OverviewPage.tsx', [
     [incomingTransferExpense],
     [],
+    new Map(),
+    new Map(),
     false,
     false,
+    undefined,
+    undefined,
     undefined,
     true,
   ])

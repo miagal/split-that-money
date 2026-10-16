@@ -1,12 +1,5 @@
 // Lists a group's local expenses and settlements, with edit activation and confirmed deletion.
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type KeyboardEvent,
-} from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   BedDouble,
   CarFront,
@@ -24,14 +17,26 @@ import {
 import type { ExpenseDto, SettlementDto } from '../../api/contracts.ts'
 import { useAuth, useSyncActions, useSyncStatus } from '../../app/providers.tsx'
 import { ConfirmDialog } from '../../components/ConfirmDialog.tsx'
+import { MoneyRowMark } from '../../components/MoneyRowMark.tsx'
 import { expenseIconComponent } from '../../lib/icons.ts'
 import { formatMoney } from '../../lib/money.ts'
 import { compactNames } from '../../lib/names.ts'
+import {
+  blurAfterPress,
+  blurOnTouchScroll,
+  moneyListRowClass,
+  pressableMoneyRowClass,
+} from '../../lib/pressable-row.ts'
+import { SettlementDialog } from '../balances/SettlementDialog.tsx'
 import { useToast } from '../feedback/ToastProvider.tsx'
 import { toastMessage } from '../feedback/api-feedback.ts'
 import { useGroup } from '../groups/group-context.ts'
 import { newRowIds } from '../groups/groups-page-rules.ts'
 import { openMoneyStore } from '../sync/database.ts'
+import {
+  entityOutboxStatus,
+  type OutboxSyncStatus,
+} from '../sync/pending-marks.ts'
 import { ExpenseDialog, removeExpense } from './ExpenseDialog.tsx'
 import { expenseDeleteQuestion } from './expense-submit-rules.ts'
 import {
@@ -41,7 +46,7 @@ import {
   nextVisibleExpenseCount,
   sortExpensesForList,
 } from './expense-list-rules.ts'
-import { isNestedInteractiveTarget, useSwipeReveal } from './swipe-reveal.ts'
+import { useSwipeReveal } from './swipe-reveal.ts'
 
 const expenseIcons: Record<string, LucideIcon> = {
   UtensilsCrossed,
@@ -75,8 +80,16 @@ export function ExpensesPage() {
   } = useSwipeReveal()
   const [expenses, setExpenses] = useState<ExpenseDto[]>([])
   const [settlements, setSettlements] = useState<SettlementDto[]>([])
-  const [editing, setEditing] = useState<ExpenseDto>()
-  const [dialog, setDialog] = useState(false)
+  const [expenseSync, setExpenseSync] = useState(
+    () => new Map<string, OutboxSyncStatus>(),
+  )
+  const [settlementSync, setSettlementSync] = useState(
+    () => new Map<string, OutboxSyncStatus>(),
+  )
+  const [editingExpense, setEditingExpense] = useState<ExpenseDto>()
+  const [editingSettlement, setEditingSettlement] = useState<SettlementDto>()
+  const [expenseDialog, setExpenseDialog] = useState(false)
+  const [settlementDialog, setSettlementDialog] = useState(false)
   const [pendingDeletion, setPendingDeletion] = useState<ExpenseDto>()
   const [deleting, setDeleting] = useState(false)
   const [visibleExpenseCount, setVisibleExpenseCount] =
@@ -92,14 +105,18 @@ export function ExpensesPage() {
     void openMoneyStore()
       .then(async (store) => {
         try {
-          const [storedExpenses, storedSettlements] = await Promise.all([
-            store.getExpenses(group.id),
-            store.getSettlements(group.id),
-          ])
+          const [storedExpenses, storedSettlements, pending] =
+            await Promise.all([
+              store.getExpenses(group.id),
+              store.getSettlements(group.id),
+              store.listPending(group.id),
+            ])
           setExpenses(storedExpenses.filter((expense) => !expense.deleted))
           setSettlements(
             storedSettlements.filter((settlement) => !settlement.deleted),
           )
+          setExpenseSync(entityOutboxStatus(pending, 'expense'))
+          setSettlementSync(entityOutboxStatus(pending, 'settlement'))
         } finally {
           store.close()
         }
@@ -151,8 +168,8 @@ export function ExpensesPage() {
         type="button"
         aria-label="Add expense"
         onClick={() => {
-          setEditing(undefined)
-          setDialog(true)
+          setEditingExpense(undefined)
+          setExpenseDialog(true)
         }}
       >
         <Plus aria-hidden size={20} />
@@ -181,8 +198,8 @@ export function ExpensesPage() {
       )
       toast.success('Expense deleted.')
       setPendingDeletion(undefined)
-      setEditing(undefined)
-      setDialog(false)
+      setEditingExpense(undefined)
+      setExpenseDialog(false)
     } catch (reason) {
       toast.error(
         toastMessage(reason) ?? 'Could not save changes. Please try again.',
@@ -192,22 +209,19 @@ export function ExpensesPage() {
     }
   }
 
-  /** Opens one row's edit dialog for clicks and keyboard activation. */
+  /** Opens one expense row's edit dialog for clicks and keyboard activation. */
   function editExpense(expense: ExpenseDto): void {
     closeSwipe()
-    setEditing(expense)
-    setDialog(true)
+    setEditingSettlement(undefined)
+    setEditingExpense(expense)
+    setExpenseDialog(true)
   }
 
-  /** Activates an expense row with the standard keyboard button keys. */
-  function handleRowKeyDown(
-    event: KeyboardEvent<HTMLDivElement>,
-    expense: ExpenseDto,
-  ): void {
-    if (isNestedInteractiveTarget(event)) return
-    if (event.key !== 'Enter' && event.key !== ' ') return
-    event.preventDefault()
-    editExpense(expense)
+  /** Opens one settlement row's edit dialog. */
+  function editSettlement(settlement: SettlementDto): void {
+    setEditingExpense(undefined)
+    setEditingSettlement(settlement)
+    setSettlementDialog(true)
   }
 
   const memberNames = useMemo(
@@ -228,8 +242,8 @@ export function ExpensesPage() {
           type="button"
           aria-label="Add expense"
           onClick={() => {
-            setEditing(undefined)
-            setDialog(true)
+            setEditingExpense(undefined)
+            setExpenseDialog(true)
           }}
         >
           <Plus aria-hidden size={20} />
@@ -251,15 +265,16 @@ export function ExpensesPage() {
                     key={expense.id}
                   >
                     <button
-                      className="swipe-reveal-action grid place-items-center bg-danger text-white md:hidden"
+                      className="swipe-reveal-action grid place-items-center bg-red-600 text-white md:hidden"
                       type="button"
                       aria-label={`Delete ${expense.title}`}
                       onClick={() => requestExpenseDeletion(expense)}
                     >
                       <Trash2 aria-hidden size={20} />
                     </button>
+                    {/* Swipe shell only; the edit button owns focus and the full-row hit area. */}
                     <div
-                      className="swipe-reveal-content grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 bg-surface-raised p-4"
+                      className="swipe-reveal-content relative bg-surface-raised"
                       style={
                         dragOffset(expense.id)
                           ? {
@@ -268,55 +283,57 @@ export function ExpensesPage() {
                             }
                           : undefined
                       }
-                      role="button"
-                      tabIndex={0}
-                      aria-label={`Edit ${expense.title}`}
-                      onClick={(event) => {
-                        if (
-                          !isNestedInteractiveTarget(event) &&
-                          !consumeActivation()
-                        )
-                          editExpense(expense)
-                      }}
-                      onKeyDown={(event) => handleRowKeyDown(event, expense)}
                       onPointerDown={onPointerDown(expense.id)}
                       onPointerMove={onPointerMove(expense.id)}
                       onPointerUp={onPointerUp(expense.id)}
                       onPointerCancel={onPointerCancel}
                     >
-                      <ExpenseMark icon={expense.icon} />
-                      <div className="min-w-0">
-                        <p className="truncate font-semibold">
-                          {expense.title}
-                        </p>
-                        <p className="truncate text-sm text-muted">
-                          {expense.date} · {member(expense.payer)}
-                        </p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-2">
-                        <span className="font-semibold tabular-nums">
+                      <button
+                        className={`${pressableMoneyRowClass} md:pr-12`}
+                        type="button"
+                        aria-label={`Edit ${expense.title}`}
+                        onClick={(event) => {
+                          if (consumeActivation()) return
+                          editExpense(expense)
+                          blurAfterPress(event)
+                        }}
+                        onTouchMove={blurOnTouchScroll}
+                      >
+                        <ExpenseMark
+                          icon={expense.icon}
+                          syncStatus={expenseSync.get(expense.id)}
+                        />
+                        <span className="min-w-0">
+                          <span className="block truncate font-semibold">
+                            {expense.title}
+                          </span>
+                          <span className="block truncate text-sm text-muted">
+                            {expense.date} · {member(expense.payer)}
+                          </span>
+                        </span>
+                        <span className="shrink-0 font-semibold tabular-nums">
                           {formatMoney(expense.amount_cents, group.currency)}
                         </span>
-                        <button
-                          className="hidden text-danger md:block"
-                          aria-label={`Delete ${expense.title}`}
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation()
-                            requestExpenseDeletion(expense)
-                          }}
-                        >
-                          <Trash2 aria-hidden size={17} />
-                        </button>
-                      </div>
+                      </button>
+                      <button
+                        className="absolute top-1/2 right-4 hidden -translate-y-1/2 text-red-600 md:block"
+                        aria-label={`Delete ${expense.title}`}
+                        type="button"
+                        onClick={() => requestExpenseDeletion(expense)}
+                      >
+                        <Trash2 aria-hidden size={17} />
+                      </button>
                     </div>
                   </li>
                 ) : (
                   <li
-                    className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 p-4 ${enteringExpenseIds.has(expense.id) ? 'list-enter' : ''}`.trim()}
+                    className={`${moneyListRowClass} ${enteringExpenseIds.has(expense.id) ? 'list-enter' : ''}`.trim()}
                     key={expense.id}
                   >
-                    <ExpenseMark icon={expense.icon} />
+                    <ExpenseMark
+                      icon={expense.icon}
+                      syncStatus={expenseSync.get(expense.id)}
+                    />
                     <div className="min-w-0">
                       <p className="truncate font-semibold">{expense.title}</p>
                       <p className="truncate text-sm text-muted">
@@ -345,41 +362,88 @@ export function ExpensesPage() {
               <p className="empty-state">No settlements yet.</p>
             ) : (
               <ul className="divide-y divide-border rounded-xl border border-border bg-surface-raised">
-                {settlements.map((settlement) => (
-                  <li
-                    className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 p-4"
-                    key={settlement.id}
-                  >
-                    <span className="grid size-9 place-items-center rounded-full bg-accent/10 text-accent">
-                      <HandCoins aria-hidden size={18} />
-                    </span>
-                    <div className="min-w-0">
-                      <p className="truncate font-semibold">
-                        {member(settlement.from_user)} paid{' '}
-                        {member(settlement.to_user)}
-                      </p>
-                      <p className="text-sm text-muted">Settlement</p>
-                    </div>
-                    <span className="shrink-0 font-semibold tabular-nums">
-                      {formatMoney(settlement.amount_cents, group.currency)}
-                    </span>
-                  </li>
-                ))}
+                {settlements.map((settlement) =>
+                  canManageMoney ? (
+                    <li key={settlement.id}>
+                      <button
+                        className={pressableMoneyRowClass}
+                        type="button"
+                        aria-label={`Edit payment from ${member(settlement.from_user)} to ${member(settlement.to_user)}`}
+                        onClick={(event) => {
+                          editSettlement(settlement)
+                          blurAfterPress(event)
+                        }}
+                        onTouchMove={blurOnTouchScroll}
+                      >
+                        <MoneyRowMark
+                          syncStatus={settlementSync.get(settlement.id)}
+                        >
+                          <HandCoins aria-hidden size={18} />
+                        </MoneyRowMark>
+                        <span className="min-w-0">
+                          <span className="block truncate font-semibold">
+                            {member(settlement.from_user)} paid{' '}
+                            {member(settlement.to_user)}
+                          </span>
+                          <span className="block text-sm text-muted">
+                            Settlement
+                          </span>
+                        </span>
+                        <span className="shrink-0 font-semibold tabular-nums">
+                          {formatMoney(
+                            settlement.amount_cents,
+                            group.currency,
+                          )}
+                        </span>
+                      </button>
+                    </li>
+                  ) : (
+                    <li
+                      className={moneyListRowClass}
+                      key={settlement.id}
+                    >
+                      <MoneyRowMark
+                        syncStatus={settlementSync.get(settlement.id)}
+                      >
+                        <HandCoins aria-hidden size={18} />
+                      </MoneyRowMark>
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold">
+                          {member(settlement.from_user)} paid{' '}
+                          {member(settlement.to_user)}
+                        </p>
+                        <p className="text-sm text-muted">Settlement</p>
+                      </div>
+                      <span className="shrink-0 font-semibold tabular-nums">
+                        {formatMoney(settlement.amount_cents, group.currency)}
+                      </span>
+                    </li>
+                  ),
+                )}
               </ul>
             )}
           </div>
         )}
       </section>
       <ExpenseDialog
-        open={dialog}
+        open={expenseDialog}
         groupId={group.id}
         currency={group.currency}
         members={group.memberships}
-        expense={editing}
-        onClose={() => setDialog(false)}
+        expense={editingExpense}
+        onClose={() => setExpenseDialog(false)}
         onSaved={load}
         onRequestDelete={requestExpenseDeletion}
         nestedConfirmationOpen={Boolean(pendingDeletion)}
+      />
+      <SettlementDialog
+        open={settlementDialog}
+        groupId={group.id}
+        currency={group.currency}
+        members={group.memberships}
+        settlement={editingSettlement}
+        onClose={() => setSettlementDialog(false)}
+        onSaved={load}
       />
       <ConfirmDialog
         open={Boolean(pendingDeletion)}
@@ -397,11 +461,17 @@ export function ExpensesPage() {
 }
 
 /** Renders an expense category marker from the persisted icon value. */
-function ExpenseMark({ icon }: { icon: ExpenseDto['icon'] }) {
+function ExpenseMark({
+  icon,
+  syncStatus,
+}: {
+  icon: ExpenseDto['icon']
+  syncStatus?: OutboxSyncStatus
+}) {
   const Icon = expenseIcons[expenseIconComponent(icon)] ?? CircleHelp
   return (
-    <span className="grid size-9 place-items-center rounded-full bg-accent/10 text-accent">
+    <MoneyRowMark syncStatus={syncStatus}>
       <Icon aria-hidden size={18} />
-    </span>
+    </MoneyRowMark>
   )
 }

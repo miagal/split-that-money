@@ -4,12 +4,24 @@ import { ArrowRight, Handshake, Plus } from 'lucide-react'
 import type { ExpenseDto, SettlementDto } from '../../api/contracts.ts'
 import { useAuth, useSyncStatus } from '../../app/providers.tsx'
 import { Avatar } from '../../components/Avatar.tsx'
+import { MoneyRowMark } from '../../components/MoneyRowMark.tsx'
 import { formatMoney } from '../../lib/money.ts'
+import {
+  blurAfterPress,
+  blurOnTouchScroll,
+  moneyListRowClass,
+  pressableMoneyRowClass,
+} from '../../lib/pressable-row.ts'
 import { compactNames } from '../../lib/names.ts'
 import { useGroup } from '../groups/group-context.ts'
 import { isOutgoingTransferForUser } from '../groups/group-view-rules.ts'
 import { openMoneyStore } from '../sync/database.ts'
-import { computeBalances, suggestTransfers, type Transfer } from './balances.ts'
+import {
+  computeBalances,
+  prioritizeTransfersForUser,
+  suggestTransfers,
+  type Transfer,
+} from './balances.ts'
 import { SettlementDialog } from './SettlementDialog.tsx'
 
 type SettlementPrefill = {
@@ -44,7 +56,11 @@ export function BalancesPage() {
     load()
   }, [load, syncStatus])
   const balances = computeBalances(expenses, settlements)
-  const transfers = suggestTransfers(balances)
+  const transfers = useMemo(
+    () =>
+      prioritizeTransfersForUser(suggestTransfers(balances), session?.id),
+    [balances, session?.id],
+  )
   const memberNames = useMemo(
     () =>
       compactNames(
@@ -53,6 +69,19 @@ export function BalancesPage() {
       ),
     [group.memberships, session?.id],
   )
+  // Keep membership order, but pin the signed-in member ("You") to the top.
+  const balanceMembers = useMemo(() => {
+    const currentId = session?.id
+    if (!currentId) return group.memberships
+    return [
+      ...group.memberships.filter(
+        (membership) => membership.user.id === currentId,
+      ),
+      ...group.memberships.filter(
+        (membership) => membership.user.id !== currentId,
+      ),
+    ]
+  }, [group.memberships, session?.id])
   const memberName = (id: string) => memberNames[id] ?? 'Member'
   /** Opens a manual payment without a generated transfer prefill. */
   function openPaymentDialog(): void {
@@ -100,12 +129,12 @@ export function BalancesPage() {
       {initialListLoadComplete && (
         <>
           <ul className="list-enter divide-y divide-border rounded-xl border border-border bg-surface-raised">
-            {group.memberships.map((membership) => {
+            {balanceMembers.map((membership) => {
               const balance = balances[membership.user.id] ?? 0
               const label = memberName(membership.user.id)
               return (
                 <li
-                  className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 p-4"
+                  className={moneyListRowClass}
                   key={membership.id}
                 >
                   <Avatar member={membership.user} label={label} />
@@ -120,7 +149,7 @@ export function BalancesPage() {
                       balance > 0
                         ? 'shrink-0 font-semibold tabular-nums text-accent'
                         : balance < 0
-                          ? 'shrink-0 font-semibold tabular-nums text-danger'
+                          ? 'balance-negative shrink-0 font-semibold tabular-nums'
                           : 'shrink-0 font-semibold tabular-nums'
                     }
                   >
@@ -136,64 +165,68 @@ export function BalancesPage() {
               <p className="empty-state">Everyone is settled.</p>
             ) : (
               <ul className="divide-y divide-border rounded-xl border border-border bg-surface-raised">
-                {transfers.map((transfer) =>
-                  canManageMoney &&
-                  isOutgoingTransferForUser(
-                    {
-                      from_user_id: transfer.fromUserId,
-                      to_user_id: transfer.toUserId,
-                      amount_cents: transfer.amountCents,
-                    },
-                    session?.id,
-                  ) ? (
+                {transfers.map((transfer) => {
+                  const actionable =
+                    canManageMoney &&
+                    isOutgoingTransferForUser(
+                      {
+                        from_user_id: transfer.fromUserId,
+                        to_user_id: transfer.toUserId,
+                        amount_cents: transfer.amountCents,
+                      },
+                      session?.id,
+                    )
+                  const names = (
+                    <span className="flex min-w-0 items-center gap-1 truncate font-semibold">
+                      {memberName(transfer.fromUserId)}
+                      <ArrowRight aria-hidden size={16} />
+                      <span className="sr-only"> pays </span>
+                      {memberName(transfer.toUserId)}
+                    </span>
+                  )
+                  const amount = (
+                    <span className="shrink-0 font-semibold tabular-nums">
+                      {formatMoney(transfer.amountCents, group.currency)}
+                    </span>
+                  )
+                  // Accent mark = you can pay; muted mark = someone else must settle.
+                  const mark = actionable ? (
+                    <MoneyRowMark>
+                      <Handshake aria-hidden size={18} />
+                    </MoneyRowMark>
+                  ) : (
+                    <span className="grid size-9 shrink-0 place-items-center rounded-full bg-muted/15 text-muted">
+                      <Handshake aria-hidden size={18} />
+                    </span>
+                  )
+                  return actionable ? (
                     <li key={`${transfer.fromUserId}-${transfer.toUserId}`}>
                       <button
-                        className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 p-4 text-left hover:bg-accent/10"
+                        className={pressableMoneyRowClass}
                         type="button"
                         aria-label={`Pay ${memberName(transfer.toUserId)}`}
-                        onClick={() => openSuggestedPayment(transfer)}
+                        onClick={(event) => {
+                          openSuggestedPayment(transfer)
+                          blurAfterPress(event)
+                        }}
+                        onTouchMove={blurOnTouchScroll}
                       >
-                        <span className="min-w-0">
-                          <span className="flex items-center gap-1 truncate font-semibold">
-                            {memberName(transfer.fromUserId)}
-                            <ArrowRight aria-hidden size={16} />
-                            <span className="sr-only"> pays </span>
-                            {memberName(transfer.toUserId)}
-                          </span>
-                          <span className="block text-sm text-muted">
-                            Suggested transfer
-                          </span>
-                        </span>
-                        <span className="flex shrink-0 items-center gap-2">
-                          <span className="grid size-9 place-items-center rounded-full bg-accent/10 text-accent">
-                            <Handshake aria-hidden size={18} />
-                          </span>
-                          <span className="font-semibold tabular-nums">
-                            {formatMoney(transfer.amountCents, group.currency)}
-                          </span>
-                        </span>
+                        {mark}
+                        {names}
+                        {amount}
                       </button>
                     </li>
                   ) : (
                     <li
-                      className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 p-4"
+                      className={moneyListRowClass}
                       key={`${transfer.fromUserId}-${transfer.toUserId}`}
                     >
-                      <div className="min-w-0">
-                        <p className="flex items-center gap-1 truncate font-semibold">
-                          {memberName(transfer.fromUserId)}
-                          <ArrowRight aria-hidden size={16} />
-                          <span className="sr-only"> pays </span>
-                          {memberName(transfer.toUserId)}
-                        </p>
-                        <p className="text-sm text-muted">Suggested transfer</p>
-                      </div>
-                      <span className="shrink-0 font-semibold tabular-nums">
-                        {formatMoney(transfer.amountCents, group.currency)}
-                      </span>
+                      {mark}
+                      {names}
+                      {amount}
                     </li>
-                  ),
-                )}
+                  )
+                })}
               </ul>
             )}
           </section>
