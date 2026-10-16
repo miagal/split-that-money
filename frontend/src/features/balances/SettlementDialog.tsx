@@ -1,7 +1,7 @@
-// Records a member-to-member payment and queues it for synchronization.
+// Records or edits a member-to-member payment and queues it for synchronization.
 import { useState, type FormEvent } from 'react'
 import { Check, X } from 'lucide-react'
-import type { MembershipDto } from '../../api/contracts.ts'
+import type { MembershipDto, SettlementDto } from '../../api/contracts.ts'
 import { useAuth, useSyncActions, useSyncStatus } from '../../app/providers.tsx'
 import { Dialog } from '../../components/Dialog.tsx'
 import { IconButton } from '../../components/IconButton.tsx'
@@ -18,6 +18,7 @@ import {
   settlementDialogResetKey,
   settlementFormDefaults,
   toSettlementUpsert,
+  type SettlementForm,
 } from './balances.ts'
 
 type Props = {
@@ -25,6 +26,7 @@ type Props = {
   groupId: string
   currency: string
   members: MembershipDto[]
+  settlement?: SettlementDto
   initialFrom?: string
   initialTo?: string
   initialAmountCents?: number
@@ -32,11 +34,19 @@ type Props = {
   onSaved: () => void
 }
 
+/**
+ * Renders the add/edit payment dialog and queues the upsert for sync.
+ *
+ * @param props - Visibility, group context, optional existing settlement or
+ *   suggested-transfer prefill, and close/saved callbacks.
+ * @returns The payment dialog.
+ */
 export function SettlementDialog({
   open,
   groupId,
   currency,
   members,
+  settlement,
   initialFrom,
   initialTo,
   initialAmountCents,
@@ -56,27 +66,35 @@ export function SettlementDialog({
   const resetKey = settlementDialogResetKey(
     open,
     memberIds,
-    initialFrom,
-    initialTo,
+    settlement ? settlement.from_user : initialFrom,
+    settlement ? settlement.to_user : initialTo,
     session?.id,
+    settlement?.id,
+    settlement ? settlement.amount_cents : initialAmountCents,
   )
   const [activeResetKey, setActiveResetKey] = useState<string | null>(null)
   if (resetKey !== activeResetKey) {
     setActiveResetKey(resetKey)
     if (resetKey !== null) {
-      const defaults = settlementFormDefaults(
-        memberIds,
-        initialFrom,
-        initialTo,
-        session?.id,
-      )
-      setFrom(defaults.from)
-      setTo(defaults.to)
-      setAmount(
-        initialAmountCents === undefined
-          ? ''
-          : (initialAmountCents / 100).toFixed(2),
-      )
+      if (settlement) {
+        setFrom(settlement.from_user)
+        setTo(settlement.to_user)
+        setAmount((settlement.amount_cents / 100).toFixed(2))
+      } else {
+        const defaults = settlementFormDefaults(
+          memberIds,
+          initialFrom,
+          initialTo,
+          session?.id,
+        )
+        setFrom(defaults.from)
+        setTo(defaults.to)
+        setAmount(
+          initialAmountCents === undefined
+            ? ''
+            : (initialAmountCents / 100).toFixed(2),
+        )
+      }
       setErrors({})
     }
   }
@@ -97,6 +115,20 @@ export function SettlementDialog({
     }
     setSaving(true)
     try {
+      const fields = {
+        fromUser: from,
+        toUser: to,
+        amountCents: cents,
+      }
+      const form: SettlementForm = settlement
+        ? {
+            ...fields,
+            id: settlement.id,
+            createdBy: settlement.created_by,
+            createdAt: settlement.created_at,
+            createdOnDevice: settlement.created_on_device,
+          }
+        : fields
       const writeEpoch = cacheEpoch
       if (!isCacheEpochCurrent(writeEpoch)) return
       const store = await openMoneyStore()
@@ -104,11 +136,7 @@ export function SettlementDialog({
         if (!isCacheEpochCurrent(writeEpoch)) return
         await queueSettlement(
           store,
-          toSettlementUpsert(
-            { fromUser: from, toUser: to, amountCents: cents },
-            session,
-            groupId,
-          ),
+          toSettlementUpsert(form, session, groupId),
           groupId,
           enqueue,
           () => isCacheEpochCurrent(writeEpoch),
@@ -120,7 +148,7 @@ export function SettlementDialog({
       onSaved()
       onClose()
       if (navigator.onLine && syncStatus !== 'Server not reachable')
-        toast.success('Payment recorded.')
+        toast.success(settlement ? 'Payment updated.' : 'Payment recorded.')
       else toast.info('Changes queued for sync.')
     } catch (reason) {
       const fields = inlineFields(reason)
@@ -139,7 +167,7 @@ export function SettlementDialog({
   return (
     <Dialog
       open={open}
-      title="Record payment"
+      title={settlement ? 'Edit payment' : 'Record payment'}
       onClose={() => {
         if (!saving) onClose()
       }}
@@ -221,7 +249,7 @@ export function SettlementDialog({
               setAmount(normalizeAmountInput(event.target.value))
             }
           />
-          {initialAmountCents !== undefined && (
+          {!settlement && initialAmountCents !== undefined && (
             <span className="text-sm font-normal text-muted">
               Suggested: {formatMoney(initialAmountCents, currency)}
             </span>

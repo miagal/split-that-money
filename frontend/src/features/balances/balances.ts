@@ -16,12 +16,19 @@ export type Transfer = {
   toUserId: string
   amountCents: number
 }
-export type SettlementForm = {
-  id?: Uuid
+type SettlementFormFields = {
   fromUser: Uuid
   toUser: Uuid
   amountCents: number
 }
+type NewSettlementForm = SettlementFormFields & { id?: undefined }
+type ExistingSettlementForm = SettlementFormFields & {
+  id: Uuid
+  createdBy: Uuid
+  createdAt: string
+  createdOnDevice: string | null
+}
+export type SettlementForm = NewSettlementForm | ExistingSettlementForm
 export type SettlementFormDefaults = { from: string; to: string }
 
 /** Chooses the sender and receiver shown when the payment dialog opens. */
@@ -46,9 +53,18 @@ export function settlementDialogResetKey(
   initialFrom?: string,
   initialTo?: string,
   sessionId?: string,
+  settlementId?: string,
+  initialAmountCents?: number,
 ): string | null {
   return open
-    ? JSON.stringify([initialFrom, initialTo, sessionId, memberIds])
+    ? JSON.stringify([
+        settlementId,
+        initialFrom,
+        initialTo,
+        initialAmountCents,
+        sessionId,
+        memberIds,
+      ])
     : null
 }
 
@@ -103,14 +119,49 @@ export function suggestTransfers(balances: BalanceMap): Transfer[] {
   return transfers
 }
 
+/**
+ * Keeps suggestTransfers order, but pins the current user's rows first.
+ * Outgoing (you owe) ranks above incoming (owed to you); others stay after.
+ *
+ * @param transfers - Suggested transfers in their original greedy order.
+ * @param userId - Signed-in member id, or undefined when unknown.
+ */
+export function prioritizeTransfersForUser(
+  transfers: Transfer[],
+  userId: string | undefined,
+): Transfer[] {
+  if (!userId) return transfers
+  const youOwe: Transfer[] = []
+  const owedToYou: Transfer[] = []
+  const others: Transfer[] = []
+  for (const transfer of transfers) {
+    if (transfer.fromUserId === userId) youOwe.push(transfer)
+    else if (transfer.toUserId === userId) owedToYou.push(transfer)
+    else others.push(transfer)
+  }
+  return [...youOwe, ...owedToYou, ...others]
+}
+
+/** Builds the client-owned wire payload for a new or edited settlement. */
 export function toSettlementUpsert(
   form: SettlementForm,
   session: UserDto,
   groupId: Uuid,
 ): SettlementUpsertDto {
   const now = new Date().toISOString()
+  if (form.id)
+    return {
+      id: form.id,
+      created_by: form.createdBy,
+      created_at: form.createdAt,
+      updated_at: now,
+      from_user: form.fromUser,
+      to_user: form.toUser,
+      amount_cents: form.amountCents,
+      created_on_device: form.createdOnDevice,
+    }
   return {
-    id: form.id ?? clientUuid(),
+    id: clientUuid(),
     created_by: session.id,
     created_at: now,
     updated_at: now,
