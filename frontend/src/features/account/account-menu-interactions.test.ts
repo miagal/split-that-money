@@ -120,6 +120,7 @@ function menuHarness(
         tone: 'success',
         label: 'Up to date',
       }),
+      shouldCloseAccountMenu: () => true,
     },
     './theme.ts': {
       useTheme: () => ({ theme: 'light', setTheme: () => undefined }),

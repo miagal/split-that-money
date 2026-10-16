@@ -214,14 +214,14 @@ export function AccountMenu({ user }: AccountMenuProps) {
             </span>
           ) : (
             <span
-              className={`absolute -bottom-1 -right-1 grid size-5 place-items-center rounded-full border-2 border-surface-raised bg-surface-raised ${statusClass}`}
+              className={`sync-badge-avatar absolute -bottom-0.5 -right-0.5 grid size-3.5 place-items-center rounded-full ${statusClass}`}
               role="status"
               aria-label={`Sync status: ${presentation.label}`}
               title={`Sync status: ${presentation.label}`}
             >
               <StatusIcon
                 aria-hidden
-                size={12}
+                size={9}
                 className={
                   presentation.icon === 'refresh' ? 'animate-spin' : undefined
                 }
@@ -269,9 +269,11 @@ export function AccountMenu({ user }: AccountMenuProps) {
               className={`flex w-full flex-col gap-0.5 border-b border-border pt-3 text-left text-sm ${pendingLabel ? 'pb-0.5' : 'pb-3'}`}
             >
               <span className="flex w-full items-center justify-between gap-2">
-                <span className="text-base font-medium">Sync status</span>
+                <span className="shrink-0 whitespace-nowrap text-base font-medium">
+                  Sync status
+                </span>
                 <span
-                  className={`inline-flex items-center gap-1.5 rounded-full border-[0.5px] border-current px-2 py-0.5 font-medium ${statusClass}`}
+                  className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border-[0.5px] border-current px-2 py-0.5 font-medium ${statusClass}`}
                 >
                   <StatusIcon
                     aria-hidden
@@ -327,7 +329,9 @@ export function AccountMenu({ user }: AccountMenuProps) {
             </button>
           )}
           <button
-            className="flex w-full items-center gap-2 border-t border-border pt-3 text-left text-base font-medium text-danger"
+            className={`flex w-full items-center gap-2 border-t border-border pt-3 text-left text-base font-medium ${
+              theme === 'dark' ? 'text-red-400' : 'text-red-600'
+            }`}
             type="button"
             onClick={sessionExpired ? signInAgain : signOut}
           >
