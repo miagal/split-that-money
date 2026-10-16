@@ -2,13 +2,10 @@
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
+import { viteDevServerOptions } from './src/vite-dev-server.ts'
 
 export default defineConfig({
-  server: {
-    proxy: {
-      '/api': 'http://127.0.0.1:8000',
-    },
-  },
+  server: viteDevServerOptions(process.env.DEV_DOMAIN),
   plugins: [
     react(),
     VitePWA({

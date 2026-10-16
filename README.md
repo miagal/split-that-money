@@ -169,6 +169,13 @@ in [docs/pwa-updates.md](docs/pwa-updates.md).
 Run the backend and frontend in separate terminals. The Vite development server
 proxies `/api` requests to the Django backend at `http://127.0.0.1:8000`.
 
+Two local UI modes:
+
+| Mode | When | App URL |
+| --- | --- | --- |
+| **HTTP LAN** (default) | Fast UI work on this PC / LAN | `http://localhost:5173` or `http://<LAN-IP>:5173` |
+| **Domain-feeling** | Test domain-mode behaviour behind your own TLS reverse proxy | `https://<your-subdomain>` only |
+
 ### Backend
 
 Requires Python 3.11 or newer. From the repository root:
@@ -196,33 +203,44 @@ python manage.py bootstrap_admin
 python manage.py runserver
 ```
 
-Copy `backend/.env.example` to `backend/.env` (gitignored).
-Set the PC's current IPv4 address in both lists and keep cookies usable over Vite's HTTP.
-Other devices on the same local network will open `http://<this-PC-IP>:5173` and Vite proxies `/api` to Django:
+Copy `backend/.env.example` to `backend/.env` (gitignored). Pick one of the two
+blocks documented in that file.
 
-```dotenv
-# 192.168.178.xx is this development PC's LAN IP, not the phone's IP.
-ALLOWED_HOSTS=localhost,127.0.0.1,192.168.178.xx
-CSRF_TRUSTED_ORIGINS=http://127.0.0.1:5173,http://localhost:5173,http://192.168.178.xx:5173
-SESSION_COOKIE_SECURE=false
-CSRF_COOKIE_SECURE=false
-```
+**HTTP LAN:** keep the default `ALLOWED_HOSTS` / `CSRF_TRUSTED_ORIGINS` / insecure
+cookies. Add your LAN IP if phones open `http://<IP>:5173`. Do **not** set
+`APP_DOMAIN` or `APP_HOST`.
 
-Do not set `APP_HOST` here. That switches Django to the HTTPS Compose origin.
+**Domain-feeling:** set `APP_DOMAIN` to the subdomain your reverse proxy
+terminates, keep `APP_HOST=127.0.0.1`, and use Secure cookies. Django then
+derives hosts and CSRF (`LOCAL_CA_SETUP` becomes false). Point the proxy at
+Vite on port `5173`. Open only `https://<subdomain>` — not `:5173`.
+
 A one-off override: `LOG_LEVEL=DEBUG sh ./scripts/start-backend.sh --local`.
 
 ### Frontend
 
-Requires a current Node.js LTS version. In a second terminal, run:
+Requires a current Node.js LTS version. In a second terminal:
+
+**HTTP LAN**
 
 ```bash
 cd frontend
 npm ci
-npm run dev -- --host
+npm run dev
 ```
 
-On this computer open `http://localhost:5173`. On a phone on the same LAN open
-`http://<LAN-IP>:5173`. Vite proxies `/api` to Django on this machine.
+Open `http://localhost:5173` (or `http://<LAN-IP>:5173` on the same network).
+
+**Domain-feeling** (same machine; your TLS proxy forwards to Vite)
+
+```bash
+cd frontend
+DEV_DOMAIN=stm-dev.<YOUR-DOMAIN>.com npm run dev
+```
+
+Replace the hostname with your subdomain. That sets Vite HMR to `wss` on port
+443 and allows that host. The proxy must forward HTTP and the Vite WebSocket
+to `http://<this-PC>:5173`.
 
 ## Verify changes
 

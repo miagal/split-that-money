@@ -27,6 +27,7 @@ test('keeps the production PWA policy in the source configuration', async () => 
   assert.match(viteConfigSource, /strategies:\s*'injectManifest'/)
   assert.match(viteConfigSource, /registerType: 'autoUpdate'/)
   assert.match(viteConfigSource, /globPatterns/)
+  assert.match(viteConfigSource, /viteDevServerOptions\(process\.env\.DEV_DOMAIN\)/)
 })
 
 test('bypasses navigation handling only for the root certificate download', async () => {
