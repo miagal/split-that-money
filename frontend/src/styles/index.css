@@ -28,6 +28,33 @@ body {
   color: rgb(var(--color-foreground));
 }
 
+/* Waiting-to-sync badge on money-row icons; same fill in light and dark. */
+.sync-badge-waiting {
+  background-color: rgb(48 54 58);
+}
+
+/*
+ * Compact sync badge on the account avatar.
+ * Light uses the border token so the disc stays visible on white; dark uses
+ * the raised surface so it sits flush on the avatar fill.
+ */
+.sync-badge-avatar {
+  background-color: rgb(var(--color-surface-raised));
+}
+
+:root[data-theme='light'] .sync-badge-avatar {
+  background-color: rgb(var(--color-border));
+}
+
+/* Member balance amounts owed: stronger in light, softer in dark. */
+.balance-negative {
+  color: rgb(220 38 38);
+}
+
+:root[data-theme='dark'] .balance-negative {
+  color: rgb(248 113 113);
+}
+
 button,
 input,
 select,
