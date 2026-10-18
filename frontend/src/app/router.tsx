@@ -92,12 +92,23 @@ function AdminUsersRoute() {
 }
 
 /**
- * Holds a blank surface while session boot is unresolved so guarded content never flashes.
+ * Holds a spinner while session boot is unresolved so guarded content never flashes.
  *
- * @returns An empty full-viewport placeholder matching the app background.
+ * @returns A full-viewport loading placeholder matching the app background.
  */
-function RouteLoading() {
-  return <main className="min-h-svh bg-surface" />
+export function RouteLoading() {
+  return (
+    <main
+      className="grid min-h-svh place-items-center bg-surface"
+      aria-busy="true"
+    >
+      <span
+        className="size-10 animate-spin rounded-full border-2 border-border border-t-accent"
+        role="status"
+        aria-label="Loading"
+      />
+    </main>
+  )
 }
 
 /**

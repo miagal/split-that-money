@@ -1,4 +1,4 @@
-// Verifies a failed account load can return to login without wiping the device cache.
+// Verifies session-boot route screens: the loading spinner and returning to login without wiping the device cache.
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
@@ -7,13 +7,26 @@ import { runInNewContext } from 'node:vm'
 import ts from 'typescript'
 
 type Node = { type: unknown; props: Record<string, unknown> }
+type RouterExports = {
+  RouteBootError: (props: { onRetry: () => void }) => Node
+  RouteLoading: () => Node
+}
 const require = createRequire(import.meta.url)
 
-/** Renders the route error screen with its auth and navigation dependencies represented as JSX nodes. */
-function renderRouteBootError(
-  leaveToLogin: () => void,
-  navigate: (path: string, options: { replace: boolean }) => void,
-): Node {
+/**
+ * Compiles the route module with auth and navigation represented as JSX nodes.
+ *
+ * @param leaveToLogin - Auth helper used by the boot-error screen.
+ * @param navigate - Router helper used by the boot-error screen.
+ * @returns The exported boot screens.
+ */
+function compileRouter(
+  leaveToLogin: () => void = () => undefined,
+  navigate: (
+    path: string,
+    options: { replace: boolean },
+  ) => void = () => undefined,
+): RouterExports {
   const source = readFileSync(new URL('./router.tsx', import.meta.url), 'utf8')
   const compiled = ts.transpileModule(source, {
     compilerOptions: {
@@ -21,7 +34,7 @@ function renderRouteBootError(
       jsx: ts.JsxEmit.ReactJSX,
     },
   }).outputText
-  const exports: Record<string, (props: { onRetry: () => void }) => Node> = {}
+  const exports = {} as RouterExports
   const jsx = (type: unknown, props: Record<string, unknown>) => ({
     type,
     props,
@@ -67,7 +80,22 @@ function renderRouteBootError(
         },
       })[name] ?? require(name),
   })
-  return exports.RouteBootError({ onRetry: () => undefined })
+  return exports
+}
+
+/** Renders the route error screen with its auth and navigation dependencies represented as JSX nodes. */
+function renderRouteBootError(
+  leaveToLogin: () => void,
+  navigate: (path: string, options: { replace: boolean }) => void,
+): Node {
+  return compileRouter(leaveToLogin, navigate).RouteBootError({
+    onRetry: () => undefined,
+  })
+}
+
+/** Renders the unresolved session-boot placeholder. */
+function renderRouteLoading(): Node {
+  return compileRouter().RouteLoading()
 }
 
 /** Returns every JSX node in a rendered child tree. */
@@ -86,6 +114,15 @@ function content(root: unknown): string {
     ? content((root as Node).props.children)
     : ''
 }
+
+test('shows a spinner while session boot is unresolved', () => {
+  const spinner = nodes(renderRouteLoading()).find(
+    (node) => node.props.role === 'status',
+  )
+
+  assert.ok(spinner)
+  assert.match(String(spinner.props.className), /animate-spin/)
+})
 
 test('returns a failed account load to login without clearing the device cache', async () => {
   const calls: string[] = []
