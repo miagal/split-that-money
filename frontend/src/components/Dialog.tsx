@@ -116,10 +116,10 @@ export function Dialog({
       onCancel={handleCancel}
       onClick={handleBackdropClick}
     >
-      <h2 className="px-6 pt-6 text-xl font-bold" id={titleId}>
+      <h2 className="text-xl font-bold" id={titleId}>
         {title}
       </h2>
-      <OverlayScrollArea className="max-h-[70svh] p-6 pt-4">
+      <OverlayScrollArea className="dialog-body">
         {children}
       </OverlayScrollArea>
       {footer && <div className="dialog-footer">{footer}</div>}

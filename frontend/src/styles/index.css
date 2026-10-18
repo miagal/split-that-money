@@ -90,6 +90,24 @@ button {
   background: rgb(var(--color-foreground) / 0.35);
 }
 
+.dialog-surface > h2 {
+  padding: 1.5rem 1.5rem 0;
+}
+
+.dialog-body {
+  max-height: 70svh;
+  padding: 1rem 1.5rem 0;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  background: rgb(var(--color-surface-raised));
+  border-top: 1px solid rgb(var(--color-border));
+}
+
 .app-shell:has(.dialog-surface[open]) .app-scroll-region {
   overflow-y: hidden;
 }
@@ -126,15 +144,6 @@ button {
   button.fixed.bottom-4.right-4.size-11 {
     right: 1.125rem;
   }
-}
-
-.dialog-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.75rem;
-  padding: 0.75rem 1.5rem max(0.75rem, env(safe-area-inset-bottom));
-  background: rgb(var(--color-surface-raised));
-  border-top: 1px solid rgb(var(--color-border));
 }
 
 .icon-picker-popover {
