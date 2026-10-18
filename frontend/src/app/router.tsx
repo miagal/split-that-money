@@ -64,7 +64,7 @@ function AuthenticatedRoute() {
 
   return (
     <main className="app-shell flex h-svh flex-col overflow-hidden bg-surface text-foreground">
-      <header className="flex shrink-0 items-center justify-between border-b border-border px-5 py-3">
+      <header className="flex shrink-0 items-center justify-between border-b border-border px-5 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top,0px))]">
         <span className="flex items-center gap-2 font-bold">
           <img src="/icon.svg" alt="" className="size-6" />
           split that money

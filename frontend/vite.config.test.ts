@@ -80,6 +80,14 @@ test('registers network-first navigation before precache in the worker source', 
   assert.match(swSource, /shouldFallbackToPrecache/)
 })
 
+test('covers the iPhone safe area in the viewport meta', async () => {
+  const indexHtml = await readFile(
+    resolve(frontendDirectory, 'index.html'),
+    'utf8',
+  )
+  assert.match(indexHtml, /viewport-fit=cover/)
+})
+
 test(
   'keeps the production PWA shell and its referenced launch assets in the build',
   {
