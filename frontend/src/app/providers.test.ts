@@ -150,6 +150,7 @@ function authHarness(
       getSession: options.getSession,
       getPublicConfig: async () => ({
         ALLOW_SELF_REGISTRATION: true,
+        SHOW_APP_VERSION: false,
         SHELL_NETWORK_TIMEOUT_SECONDS: 3,
         SYNC_REQUEST_TIMEOUT_SECONDS: 8,
         LOCAL_CA_SETUP: true,

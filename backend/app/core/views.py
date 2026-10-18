@@ -11,7 +11,7 @@ from app.core.config import PUBLIC_CONFIG_VARS, settings
 
 @method_decorator(ensure_csrf_cookie, name="dispatch")
 class PublicConfigView(APIView):
-    """Return safe feature flags for unauthenticated clients."""
+    """Return safe feature flags and baked app identity for unauthenticated clients."""
 
     permission_classes = [AllowAny]
 

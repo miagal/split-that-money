@@ -69,12 +69,14 @@ jobs:
 
           NEW_TAG="v$major.$minor.$patch"
           VERSION="$major.$minor.$patch"
+          GIT_SHORT=$(git rev-parse --short=7 HEAD)
           BACKEND_IMAGE="${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.BACKEND_IMAGE_NAME }}"
           FRONTEND_IMAGE="${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.FRONTEND_IMAGE_NAME }}"
 
           # 5. Set variables for both Shell and subsequent Steps
           echo "NEW_TAG=$NEW_TAG" >> "$GITHUB_ENV"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "GIT_SHORT=$GIT_SHORT" >> "$GITHUB_ENV"
           echo "BACKEND_IMAGE=$BACKEND_IMAGE" >> "$GITHUB_ENV"
           echo "FRONTEND_IMAGE=$FRONTEND_IMAGE" >> "$GITHUB_ENV"
 
@@ -102,6 +104,9 @@ jobs:
           tags: |
             ${{ env.BACKEND_IMAGE }}:${{ env.VERSION }}
             ${{ env.BACKEND_IMAGE }}:latest
+          build-args: |
+            APP_VERSION=${{ env.NEW_TAG }}
+            APP_GIT=${{ env.GIT_SHORT }}
           cache-from: type=registry,ref=${{ env.BACKEND_IMAGE }}:buildcache
           cache-to: type=registry,ref=${{ env.BACKEND_IMAGE }}:buildcache,mode=max
 
@@ -115,6 +120,9 @@ jobs:
           tags: |
             ${{ env.FRONTEND_IMAGE }}:${{ env.VERSION }}
             ${{ env.FRONTEND_IMAGE }}:latest
+          build-args: |
+            APP_VERSION=${{ env.NEW_TAG }}
+            APP_GIT=${{ env.GIT_SHORT }}
           cache-from: type=registry,ref=${{ env.FRONTEND_IMAGE }}:buildcache
           cache-to: type=registry,ref=${{ env.FRONTEND_IMAGE }}:buildcache,mode=max
 

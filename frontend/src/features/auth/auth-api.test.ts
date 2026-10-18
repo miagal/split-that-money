@@ -109,6 +109,7 @@ test('getPublicConfig falls back to the last stored config only when the server 
   })
   const config = {
     ALLOW_SELF_REGISTRATION: false,
+    SHOW_APP_VERSION: false,
     SHELL_NETWORK_TIMEOUT_SECONDS: 3,
     SYNC_REQUEST_TIMEOUT_SECONDS: 8,
     LOCAL_CA_SETUP: false,

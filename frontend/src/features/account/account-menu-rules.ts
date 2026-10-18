@@ -18,6 +18,16 @@ type SyncPresentation = {
   icon: 'check' | 'refresh' | 'upload' | 'cloud-off' | 'warning'
 }
 
+export type AppIdentity = { version: string; git: string }
+export type FrontendIdentityEnv = {
+  VITE_APP_VERSION?: string
+  VITE_APP_GIT?: string
+}
+export type PublicAppIdentity = {
+  APP_VERSION?: string
+  APP_GIT?: string
+}
+
 const SYNC_PRESENTATION: Record<SyncStatus, SyncPresentation> = {
   Synced: { label: 'Synced', tone: 'success', icon: 'check' },
   Syncing: { label: 'Syncing', tone: 'warning', icon: 'refresh' },
@@ -86,4 +96,59 @@ export function shouldAnimateOverflow({
   reducedMotion,
 }: OverflowMeasurement): boolean {
   return scrollWidth > clientWidth && !reducedMotion
+}
+
+/**
+ * Reads the GUI identity baked into the Vite bundle.
+ *
+ * Missing env (containerless `npm run dev`, Node tests) is `lcl` with an empty git.
+ * `import.meta.env` is Vite-only; Node tests pass an explicit object or omit it.
+ *
+ * @param env - Vite `import.meta.env` or a test double.
+ * @returns The running frontend identity.
+ */
+export function frontendIdentity(
+  env: FrontendIdentityEnv = (
+    import.meta as ImportMeta & { env?: FrontendIdentityEnv }
+  ).env ?? {},
+): AppIdentity {
+  return {
+    version: env.VITE_APP_VERSION?.trim() || 'lcl',
+    git: env.VITE_APP_GIT?.trim() || '',
+  }
+}
+
+/**
+ * Reads backend identity from public config. Empty or missing APP_VERSION is unknown
+ * (old cached config from before this field existed).
+ *
+ * @param config - Public config object, or null when none has been loaded.
+ * @returns Backend identity, or null when it must not be shown.
+ */
+export function backendIdentity(
+  config: PublicAppIdentity | null,
+): AppIdentity | null {
+  const version = config?.APP_VERSION?.trim() ?? ''
+  if (!version) return null
+  return { version, git: config?.APP_GIT?.trim() ?? '' }
+}
+
+/**
+ * Builds the account-menu version footer, or null when the backend identity is unknown.
+ *
+ * Same label and same git (empty git equals empty git) → one label.
+ * Any difference → `fe: <frontend> / be: <backend>`. Hashes stay out of the string.
+ *
+ * @param frontend - Identity of the running JS bundle.
+ * @param backend - Identity from live or stored public config, or null.
+ * @returns Footer text, or null to hide the row.
+ */
+export function versionFooterLine(
+  frontend: AppIdentity,
+  backend: AppIdentity | null,
+): string | null {
+  if (!backend) return null
+  if (frontend.version === backend.version && frontend.git === backend.git)
+    return frontend.version
+  return `fe: ${frontend.version} / be: ${backend.version}`
 }

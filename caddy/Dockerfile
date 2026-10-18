@@ -7,6 +7,12 @@ COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 
 COPY frontend/ ./
+# Identity of the running frontend. Vite inlines these into the JS bundle before Caddy copies dist.
+#   GitHub Action passes vX.Y.Z + short commit hash.
+ARG APP_VERSION=lcl-cntr
+ARG APP_GIT=
+ENV VITE_APP_VERSION=$APP_VERSION
+ENV VITE_APP_GIT=$APP_GIT
 RUN npm run build
 
 FROM caddy:2-alpine

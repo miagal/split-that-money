@@ -83,6 +83,16 @@ def _get_int(name: str, default: str) -> int:
     return int(os.getenv(name, default))
 
 
+def _get_app_version() -> str:
+    """Return the baked release label, or containerless local when unset."""
+    return os.getenv("APP_VERSION", "lcl").strip() or "lcl"
+
+
+def _get_app_git() -> str:
+    """Return the baked short git SHA, or empty when unset (local builds)."""
+    return os.getenv("APP_GIT", "").strip()
+
+
 class Settings(BaseSettings):
     """Application settings loaded from explicit environment variables."""
 
@@ -96,6 +106,8 @@ class Settings(BaseSettings):
     # True when STM terminates TLS itself (local CA); false when APP_DOMAIN is set and an edge proxy handles HTTPS -> access via subdomain.
     DATABASE_NAME: str = os.getenv("DATABASE_NAME", "split_that_money.sqlite3")
     ALLOW_SELF_REGISTRATION: bool = _get_bool("ALLOW_SELF_REGISTRATION", "true")
+    # When false the account dropdown hides the baked version pill.
+    SHOW_APP_VERSION: bool = _get_bool("SHOW_APP_VERSION", "false")
     BOOTSTRAP_ADMIN_ENABLED: bool = _get_bool("BOOTSTRAP_ADMIN_ENABLED", "false")
     BOOTSTRAP_ADMIN_EMAIL: str = os.getenv("BOOTSTRAP_ADMIN_EMAIL", "admin@admin.com")
     BOOTSTRAP_ADMIN_PASSWORD: str = os.getenv("BOOTSTRAP_ADMIN_PASSWORD", "admin123$")
@@ -110,6 +122,10 @@ class Settings(BaseSettings):
     SHELL_NETWORK_TIMEOUT_SECONDS: int = _get_int("SHELL_NETWORK_TIMEOUT_SECONDS", "3")
     # Seconds one GUI sync request waits before aborting a dead server
     SYNC_REQUEST_TIMEOUT_SECONDS: int = _get_int("SYNC_REQUEST_TIMEOUT_SECONDS", "8")
+    # Baked release label (`v1.2.3`, `lcl`, `lcl-cntr`); not an operator Compose setting.
+    APP_VERSION: str = _get_app_version()
+    # Baked 7-character git SHA, or empty for local builds.
+    APP_GIT: str = _get_app_git()
 
     model_config = SettingsConfigDict(case_sensitive=True)
 
@@ -128,9 +144,12 @@ class Settings(BaseSettings):
 
 PUBLIC_CONFIG_VARS = [
     "ALLOW_SELF_REGISTRATION",
+    "SHOW_APP_VERSION",
     "SHELL_NETWORK_TIMEOUT_SECONDS",
     "SYNC_REQUEST_TIMEOUT_SECONDS",
     "LOCAL_CA_SETUP",
+    "APP_VERSION",
+    "APP_GIT",
 ]
 
 settings = Settings()

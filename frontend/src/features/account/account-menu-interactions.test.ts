@@ -6,6 +6,11 @@ import test from 'node:test'
 import { runInNewContext } from 'node:vm'
 import ts from 'typescript'
 import * as routeRules from '../../app/router-rules.ts'
+import {
+  backendIdentity,
+  frontendIdentity,
+  versionFooterLine,
+} from './account-menu-rules.ts'
 
 type Node = { type: unknown; props: Record<string, any> }
 const require = createRequire(import.meta.url)
@@ -24,7 +29,14 @@ const user = {
 function menuHarness(
   roles: Pick<typeof user, 'is_staff' | 'is_superuser'>,
   options: boolean | { online?: boolean; sessionExpired?: boolean } = {},
-  configOptions: { localCaSetup?: boolean; configFails?: boolean } = {},
+  configOptions: {
+    localCaSetup?: boolean
+    configFails?: boolean
+    appVersion?: string
+    appGit?: string
+    showAppVersion?: boolean
+    omitShowAppVersion?: boolean
+  } = {},
 ) {
   const { online, sessionExpired } =
     typeof options === 'boolean'
@@ -108,12 +120,22 @@ function menuHarness(
             SHELL_NETWORK_TIMEOUT_SECONDS: 3,
             SYNC_REQUEST_TIMEOUT_SECONDS: 8,
             LOCAL_CA_SETUP: configOptions.localCaSetup ?? true,
+            APP_VERSION: configOptions.appVersion ?? 'lcl',
+            APP_GIT: configOptions.appGit ?? '',
+            ...(configOptions.omitShowAppVersion
+              ? {}
+              : {
+                  SHOW_APP_VERSION: configOptions.showAppVersion ?? false,
+                }),
           })
           return { catch: () => undefined }
         },
       }),
     },
     './account-menu-rules.ts': {
+      frontendIdentity,
+      backendIdentity,
+      versionFooterLine,
       syncPendingLabel: () => null,
       syncPresentation: () => ({
         icon: 'check',
@@ -387,3 +409,100 @@ for (const [role, roles, visible] of [
     }
   })
 }
+
+test('shows a matching version footer under Log out, not inside the button', () => {
+  const menu = menuHarness({ is_staff: false, is_superuser: false }, true, {
+    showAppVersion: true,
+  })
+  nodes(menu.render())
+    .find((node) => node.props['aria-label'] === 'Open account menu')!
+    .props.onClick()
+  const rendered = nodes(menu.render())
+  const logOut = rendered.find((node) => content(node) === 'Log out')
+  assert.ok(logOut)
+  assert.equal(logOut.type, 'button')
+  assert.equal(content(logOut).includes('lcl'), false)
+  const card = rendered.find((node) =>
+    String(node.props.className ?? '').includes('bg-surface-raised'),
+  )
+  assert.ok(card)
+  assert.equal(content(card).includes('lcl'), false)
+  const footer = rendered.find(
+    (node) =>
+      content(node) === 'lcl' &&
+      String(node.props.className ?? '').includes('text-xs'),
+  )
+  assert.ok(footer)
+  assert.notEqual(footer.type, 'button')
+  assert.match(String(footer.props.className), /color-mix/)
+  assert.match(String(footer.props.className), /text-amber-500/)
+  assert.match(String(footer.props.className), /rounded-full/)
+  assert.equal(footer.props.title, undefined)
+})
+
+test('shows fe/be labels when public config version differs', () => {
+  const menu = menuHarness({ is_staff: false, is_superuser: false }, true, {
+    appVersion: 'v1.2.3',
+    appGit: 'abc1234',
+    showAppVersion: true,
+  })
+  nodes(menu.render())
+    .find((node) => node.props['aria-label'] === 'Open account menu')!
+    .props.onClick()
+  assert.equal(
+    nodes(menu.render()).some(
+      (node) => content(node) === 'fe: lcl / be: v1.2.3',
+    ),
+    true,
+  )
+})
+
+test('hides the version footer when SHOW_APP_VERSION is false', () => {
+  const menu = menuHarness({ is_staff: false, is_superuser: false })
+  nodes(menu.render())
+    .find((node) => node.props['aria-label'] === 'Open account menu')!
+    .props.onClick()
+  const rendered = nodes(menu.render())
+  assert.equal(
+    rendered.some(
+      (node) =>
+        content(node) === 'lcl' &&
+        String(node.props.className ?? '').includes('text-xs'),
+    ),
+    false,
+  )
+})
+
+test('hides the version footer when SHOW_APP_VERSION is missing from config', () => {
+  const menu = menuHarness({ is_staff: false, is_superuser: false }, true, {
+    omitShowAppVersion: true,
+  })
+  nodes(menu.render())
+    .find((node) => node.props['aria-label'] === 'Open account menu')!
+    .props.onClick()
+  const rendered = nodes(menu.render())
+  assert.equal(
+    rendered.some(
+      (node) =>
+        content(node) === 'lcl' &&
+        String(node.props.className ?? '').includes('text-xs'),
+    ),
+    false,
+  )
+})
+
+test('hides the version footer when public config cannot be read', () => {
+  const menu = menuHarness({ is_staff: false, is_superuser: false }, false, {
+    configFails: true,
+  })
+  nodes(menu.render())
+    .find((node) => node.props['aria-label'] === 'Open account menu')!
+    .props.onClick()
+  const rendered = nodes(menu.render())
+  assert.equal(
+    rendered.some((node) =>
+      String(node.props.className ?? '').includes('text-xs'),
+    ),
+    false,
+  )
+})

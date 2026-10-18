@@ -79,6 +79,7 @@ These live under `environment:` in `docker-compose.yml`. You can also load them 
 | `DJANGO_SECRET_KEY` | `change-this-secret-key-in-production` | Replace on a real NAS. Changing it signs everyone out. |
 | `SESSION_COOKIE_SECURE` / `CSRF_COOKIE_SECURE` | `"true"` | HTTPS-only cookies. In domain mode, set both to `"false"` only if you also need login on the plain `http://<IP>:<HTTP_PORT>` debug URL; keep that port LAN-only. |
 | `ALLOW_SELF_REGISTRATION` | `true` | Registration on the login page. If `false`, an admin creates accounts. |
+| `SHOW_APP_VERSION` | `false` | Account-menu version pill (`lcl`, `v1.2.3`, or `fe: … / be: …`). Off by default so it does not bother every user. |
 | `SESSION_COOKIE_AGE_DAYS` | `30` | Days a server sign-in stays valid. Offline data survives expiry; sign in again to sync. |
 
 **Data and behaviour**
@@ -89,6 +90,8 @@ These live under `environment:` in `docker-compose.yml`. You can also load them 
 | `LOG_LEVEL` | `INFO` | Application log verbosity. |
 | `SHELL_NETWORK_TIMEOUT_SECONDS` | `3` | Cold start: how long the PWA waits for the server before using the cached shell. |
 | `SYNC_REQUEST_TIMEOUT_SECONDS` | `8` | How long one GUI sync request waits before aborting. |
+
+`APP_VERSION` and `APP_GIT` are **not** Compose or `.env` settings. CI bakes them into both images at build (`v1.2.3` plus a 7-character git SHA). Local Compose images default to `lcl-cntr`; containerless `npm run dev` / Django default to `lcl`. A runtime override would disagree with the running image. The pill reads those baked values only when `SHOW_APP_VERSION` is `true`.
 
 The network anchors above are copied into the containers as `APP_DOMAIN`, `APP_HOST`, `HTTP_PORT`, and `HTTPS_PORT`. You normally edit only the four `x-…` lines at the top of Compose.
 

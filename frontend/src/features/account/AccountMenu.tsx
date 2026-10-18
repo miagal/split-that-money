@@ -1,4 +1,4 @@
-// Renders the authenticated account trigger, controlled dropdown, theme preference, and logout action.
+// Renders the authenticated account trigger and dropdown with sync, theme, logout, and app identity.
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import {
   Check,
@@ -20,10 +20,13 @@ import {
 } from '../../app/providers.tsx'
 import { canAccessAdmin } from '../../app/router-rules.ts'
 import {
+  backendIdentity,
+  frontendIdentity,
   shouldAnimateOverflow,
   shouldCloseAccountMenu,
   syncPendingLabel,
   syncPresentation,
+  versionFooterLine,
 } from './account-menu-rules.ts'
 import { Switch } from '../../components/Switch.tsx'
 import { Button } from '../../components/Button.tsx'
@@ -54,6 +57,9 @@ export function AccountMenu({ user }: AccountMenuProps) {
   const [open, setOpen] = useState(false)
   // Hidden until a live or stored config confirms local mode; the setup needs the server anyway.
   const [localCaSetup, setLocalCaSetup] = useState(false)
+  const [showAppVersion, setShowAppVersion] = useState(false)
+  const [backend, setBackend] =
+    useState<ReturnType<typeof backendIdentity>>(null)
   const [emailOverflow, setEmailOverflow] = useState<{
     animate: boolean
     distance: number
@@ -82,11 +88,18 @@ export function AccountMenu({ user }: AccountMenuProps) {
           ? 'text-danger'
           : 'text-muted'
   const pendingLabel = syncPendingLabel(syncStatus, pendingChanges)
+  const footerLine = showAppVersion
+    ? versionFooterLine(frontendIdentity(), backend)
+    : null
 
-  // Shows Offline setup only in local mode.
+  // Shows Offline setup (local mode only) and the version pill only after public config resolves.
   useEffect(() => {
     void getPublicConfig()
-      .then((config) => setLocalCaSetup(config.LOCAL_CA_SETUP))
+      .then((config) => {
+        setLocalCaSetup(config.LOCAL_CA_SETUP)
+        setShowAppVersion(config.SHOW_APP_VERSION === true)
+        setBackend(backendIdentity(config))
+      })
       .catch(() => undefined)
   }, [])
 
@@ -233,8 +246,9 @@ export function AccountMenu({ user }: AccountMenuProps) {
       {open && (
         <div
           ref={menuRef}
-          className="absolute right-0 z-50 mt-2 w-64 rounded-xl border border-border bg-surface-raised p-3 shadow-lg"
+          className="absolute right-0 z-50 mt-2 flex w-64 flex-col items-end gap-1.5"
         >
+        <div className="w-full rounded-xl border border-border bg-surface-raised p-3 shadow-lg">
           <p className="border-b border-border pb-3 text-sm text-muted">
             <span
               ref={emailTrackRef}
@@ -338,6 +352,12 @@ export function AccountMenu({ user }: AccountMenuProps) {
             <LogOut aria-hidden size={16} />
             {sessionExpired ? 'Re-login' : 'Log out'}
           </button>
+        </div>
+          {footerLine && (
+            <span className="inline-flex max-w-full truncate rounded-full border-[0.5px] border-current bg-[color-mix(in_srgb,#f59e0b_15%,rgb(var(--color-surface)))] px-2 py-0.5 text-xs font-medium text-amber-500">
+              {footerLine}
+            </span>
+          )}
         </div>
       )}
     </div>

@@ -31,13 +31,16 @@ services:
       # you also need login on http://<APP_HOST>:<HTTP_PORT> (LAN debug URL — do not expose it).
       SESSION_COOKIE_SECURE: "true"
       CSRF_COOKIE_SECURE: "true"
-      
+
       # Days a server sign-in stays valid; offline data survives expiry and syncs after the same user signs in again.
       SESSION_COOKIE_AGE_DAYS: "30"
       # Seconds the installed React Gui app waits for the server before starting from its cached shell.
       SHELL_NETWORK_TIMEOUT_SECONDS: "3"
       # Seconds one GUI sync request waits before aborting so Syncing cannot hang.
       SYNC_REQUEST_TIMEOUT_SECONDS: "8"
+
+      # Account dropdown menu version pill. Leave false so normal users are not shown build identity.
+      SHOW_APP_VERSION: "false"
     volumes:
       - backend_data:/data
       - backend_logs:/app/app/logs

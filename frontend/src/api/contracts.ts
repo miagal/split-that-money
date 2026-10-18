@@ -12,10 +12,13 @@ export type ApiErrorPayload = {
 
 export type PublicConfigDto = {
   ALLOW_SELF_REGISTRATION: boolean
+  SHOW_APP_VERSION: boolean
   SHELL_NETWORK_TIMEOUT_SECONDS: number
   SYNC_REQUEST_TIMEOUT_SECONDS: number
   /** True in local-CA mode; false when APP_DOMAIN is set (edge TLS). */
   LOCAL_CA_SETUP: boolean
+  APP_VERSION: string
+  APP_GIT: string
 }
 
 export type LoginDto = {

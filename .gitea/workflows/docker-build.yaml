@@ -39,6 +39,7 @@ jobs:
     outputs:
       NEW_TAG: ${{ steps.versioning.outputs.NEW_TAG }}
       VERSION: ${{ steps.versioning.outputs.VERSION }}
+      GIT_SHORT: ${{ steps.versioning.outputs.GIT_SHORT }}
       REGISTRY: ${{ steps.versioning.outputs.REGISTRY }}
       BACKEND_IMAGE: ${{ steps.versioning.outputs.BACKEND_IMAGE }}
       FRONTEND_IMAGE: ${{ steps.versioning.outputs.FRONTEND_IMAGE }}
@@ -79,6 +80,7 @@ jobs:
 
           NEW_TAG="v$major.$minor.$patch"
           VERSION="$major.$minor.$patch"
+          GIT_SHORT=$(git rev-parse --short=7 HEAD)
           # Gitea registry host is this instance, not ghcr.io. Image names must be lowercase.
           REGISTRY=${SERVER_URL#*://}
           REGISTRY=${REGISTRY%%/*}
@@ -90,6 +92,7 @@ jobs:
           {
             echo "NEW_TAG=$NEW_TAG"
             echo "VERSION=$VERSION"
+            echo "GIT_SHORT=$GIT_SHORT"
             echo "REGISTRY=$REGISTRY"
             echo "BACKEND_IMAGE=$BACKEND_IMAGE"
             echo "FRONTEND_IMAGE=$FRONTEND_IMAGE"
@@ -125,6 +128,9 @@ jobs:
           tags: |
             ${{ needs.version.outputs.BACKEND_IMAGE }}:${{ needs.version.outputs.VERSION }}
             ${{ needs.version.outputs.BACKEND_IMAGE }}:latest
+          build-args: |
+            APP_VERSION=${{ needs.version.outputs.NEW_TAG }}
+            APP_GIT=${{ needs.version.outputs.GIT_SHORT }}
           cache-from: type=registry,ref=${{ needs.version.outputs.BACKEND_IMAGE }}:buildcache
           cache-to: type=registry,ref=${{ needs.version.outputs.BACKEND_IMAGE }}:buildcache,mode=max
 
@@ -158,6 +164,9 @@ jobs:
           tags: |
             ${{ needs.version.outputs.FRONTEND_IMAGE }}:${{ needs.version.outputs.VERSION }}
             ${{ needs.version.outputs.FRONTEND_IMAGE }}:latest
+          build-args: |
+            APP_VERSION=${{ needs.version.outputs.NEW_TAG }}
+            APP_GIT=${{ needs.version.outputs.GIT_SHORT }}
           cache-from: type=registry,ref=${{ needs.version.outputs.FRONTEND_IMAGE }}:buildcache
           cache-to: type=registry,ref=${{ needs.version.outputs.FRONTEND_IMAGE }}:buildcache,mode=max
 
