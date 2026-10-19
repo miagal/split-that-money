@@ -54,13 +54,6 @@ test('nested-content pull reloads at the threshold while dialog pulls are ignore
   runInNewContext(compiled, {
     exports,
     Element: FakeElement,
-    window: {
-      location: {
-        reload: () => {
-          reloads++
-        },
-      },
-    },
     require: (name: string) => {
       if (name.endsWith('.css')) return {}
       return (
@@ -77,6 +70,11 @@ test('nested-content pull reloads at the threshold while dialog pulls are ignore
           'react/jsx-runtime': {
             jsx: (_type: unknown, props: unknown) => props,
             jsxs: (_type: unknown, props: unknown) => props,
+          },
+          '../../app/live-shell-navigation.ts': {
+            reloadForLiveShell: () => {
+              reloads++
+            },
           },
         }[name] ?? require(name)
       )

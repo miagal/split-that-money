@@ -1,11 +1,12 @@
 // Adds a touch pull gesture to the authenticated app's existing scroll region.
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { reloadForLiveShell } from '../../app/live-shell-navigation.ts'
 import { pullToReloadState, shouldPreventPull } from './pull-to-reload-rules.ts'
 import './pull-to-reload.css'
 
 const threshold = 72
 
-/** Renders one scroll region and reloads after a completed touch pull from its top. */
+/** Renders one scroll region and fetches a live shell after a completed touch pull from its top. */
 export function PullToReload({
   children,
   className,
@@ -71,7 +72,7 @@ export function PullToReload({
       const ready =
         touchRef.current?.state === 'ready' && element.scrollTop === 0
       reset()
-      if (ready) window.location.reload()
+      if (ready) reloadForLiveShell()
     }
 
     function onTouchCancel(event: TouchEvent) {

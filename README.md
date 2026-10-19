@@ -88,7 +88,7 @@ These live under `environment:` in `docker-compose.yml`. You can also load them 
 |----------|---------|--------|
 | `DATABASE_NAME` | `/data/split_that_money.sqlite3` | SQLite path inside the container; survives rebuilds via the data volume. |
 | `LOG_LEVEL` | `INFO` | Application log verbosity. |
-| `SHELL_NETWORK_TIMEOUT_SECONDS` | `3` | Cold start: how long the PWA waits for the server before using the cached shell. |
+| `SHELL_NETWORK_TIMEOUT_SECONDS` | `3` | Pull-to-reload and Update app: how long the PWA waits for the server before using the cached shell. Cold start uses the cache immediately. |
 | `SYNC_REQUEST_TIMEOUT_SECONDS` | `8` | How long one GUI sync request waits before aborting. |
 
 `APP_VERSION` and `APP_GIT` are **not** Compose or `.env` settings. CI bakes them into both images at build (`v1.2.3` plus a 7-character git SHA). Local Compose images default to `lcl-cntr`; containerless `npm run dev` / Django default to `lcl`. A runtime override would disagree with the running image. The pill reads those baked values only when `SHOW_APP_VERSION` is `true`.

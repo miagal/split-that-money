@@ -7,6 +7,7 @@ import { runInNewContext } from 'node:vm'
 import ts from 'typescript'
 import * as routeRules from '../../app/router-rules.ts'
 import {
+  appUpdateAvailable,
   backendIdentity,
   frontendIdentity,
   versionFooterLine,
@@ -55,6 +56,7 @@ function menuHarness(
   const states: unknown[] = []
   const navigations: string[] = []
   const authCalls: string[] = []
+  const liveShellReloads: string[] = []
   let sessionExpiredNoticeSeen = false
   let stateIndex = 0
   const react = {
@@ -90,6 +92,7 @@ function menuHarness(
     'lucide-react': {
       Check: 'check-icon',
       CloudOff: 'cloud-off-icon',
+      Download: () => null,
       LogOut: () => null,
       RefreshCw: 'refresh-icon',
       Settings: () => null,
@@ -117,33 +120,49 @@ function menuHarness(
       useSyncStatus: () => 'idle',
       useSyncPendingChanges: () => 0,
     },
+    '../../app/live-shell-navigation.ts': {
+      reloadForLiveShell: () => {
+        liveShellReloads.push('reload')
+      },
+    },
     '../auth/public-config.ts': {
-      usePublicConfig: () => {
-        if (configFails && !configOptions.stored) return null
-        const source = configFails ? configOptions.stored : configOptions
-        return {
+      usePublicConfigState: () => {
+        const toConfig = (
+          source:
+            | typeof configOptions
+            | NonNullable<(typeof configOptions)['stored']>,
+        ) => ({
           ALLOW_SELF_REGISTRATION: true,
           SHELL_NETWORK_TIMEOUT_SECONDS: 3,
           SYNC_REQUEST_TIMEOUT_SECONDS: 8,
           LOCAL_CA_SETUP:
-            source?.localCaSetup ?? configOptions.localCaSetup ?? true,
-          APP_VERSION: source?.appVersion ?? configOptions.appVersion ?? 'lcl',
-          APP_GIT: source?.appGit ?? configOptions.appGit ?? '',
+            source.localCaSetup ?? configOptions.localCaSetup ?? true,
+          APP_VERSION: source.appVersion ?? configOptions.appVersion ?? 'lcl',
+          APP_GIT: source.appGit ?? configOptions.appGit ?? '',
           ...(configFails || !configOptions.omitShowAppVersion
             ? {
                 SHOW_APP_VERSION:
-                  source?.showAppVersion ??
+                  source.showAppVersion ??
                   configOptions.showAppVersion ??
                   false,
               }
             : {}),
+        })
+        if (configFails) {
+          return {
+            config: configOptions.stored ? toConfig(configOptions.stored) : null,
+            live: null,
+          }
         }
+        const live = toConfig(configOptions)
+        return { config: live, live }
       },
     },
     './account-menu-rules.ts': {
       frontendIdentity,
       backendIdentity,
       versionFooterLine,
+      appUpdateAvailable,
       syncPendingLabel: () => null,
       syncPresentation: () => ({
         icon: 'check',
@@ -190,6 +209,7 @@ function menuHarness(
     },
     navigations,
     authCalls,
+    liveShellReloads,
   }
 }
 
@@ -546,4 +566,81 @@ test('shows the last stored version footer when public config cannot be read', (
     ),
     true,
   )
+})
+
+test('shows Update app on live identity mismatch even when the version footer is hidden', () => {
+  const menu = menuHarness({ is_staff: false, is_superuser: false }, true, {
+    appVersion: 'v1.2.3',
+    appGit: 'abc1234',
+    showAppVersion: false,
+  })
+  nodes(menu.render())
+    .find((node) => node.props['aria-label'] === 'Open account menu')!
+    .props.onClick()
+  const rendered = nodes(menu.render())
+  assert.equal(
+    rendered.some((node) => content(node) === 'Update app'),
+    true,
+  )
+  assert.equal(
+    rendered.some((node) => node.props['aria-label'] === 'App update available'),
+    true,
+  )
+})
+
+test('hides Update app when only stored public config mismatches', () => {
+  const menu = menuHarness({ is_staff: false, is_superuser: false }, false, {
+    configFails: true,
+    stored: { appVersion: 'v1.2.3', appGit: 'abc1234', showAppVersion: true },
+  })
+  nodes(menu.render())
+    .find((node) => node.props['aria-label'] === 'Open account menu')!
+    .props.onClick()
+  const rendered = nodes(menu.render())
+  assert.equal(
+    rendered.some((node) => content(node) === 'Update app'),
+    false,
+  )
+  assert.equal(
+    rendered.some((node) => node.props['aria-label'] === 'App update available'),
+    false,
+  )
+  assert.equal(
+    rendered.some((node) => content(node) === 'fe: lcl / be: v1.2.3'),
+    true,
+  )
+})
+
+test('hides Update app while the session is expired', () => {
+  const menu = menuHarness(
+    { is_staff: false, is_superuser: false },
+    { online: true, sessionExpired: true },
+    { appVersion: 'v1.2.3', appGit: 'abc1234' },
+  )
+  nodes(menu.render())
+    .find((node) => node.props['aria-label'] === 'Open account menu')!
+    .props.onClick()
+  const rendered = nodes(menu.render())
+  assert.equal(
+    rendered.some((node) => content(node) === 'Update app'),
+    false,
+  )
+  assert.equal(
+    rendered.some((node) => node.props['aria-label'] === 'App update available'),
+    false,
+  )
+})
+
+test('Update app reloads through the live-shell helper', () => {
+  const menu = menuHarness({ is_staff: false, is_superuser: false }, true, {
+    appVersion: 'v1.2.3',
+    appGit: 'abc1234',
+  })
+  nodes(menu.render())
+    .find((node) => node.props['aria-label'] === 'Open account menu')!
+    .props.onClick()
+  nodes(menu.render())
+    .find((node) => content(node) === 'Update app')!
+    .props.onClick()
+  assert.deepEqual(menu.liveShellReloads, ['reload'])
 })

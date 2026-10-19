@@ -1,8 +1,9 @@
-// Renders the authenticated account trigger and dropdown with sync, theme, logout, and app identity.
+// Renders the authenticated account trigger and dropdown with sync, theme, logout, identity, and live-shell update.
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import {
   Check,
   CloudOff,
+  Download,
   LogOut,
   RefreshCw,
   Settings,
@@ -19,7 +20,9 @@ import {
   useSyncStatus,
 } from '../../app/providers.tsx'
 import { canAccessAdmin } from '../../app/router-rules.ts'
+import { reloadForLiveShell } from '../../app/live-shell-navigation.ts'
 import {
+  appUpdateAvailable,
   backendIdentity,
   frontendIdentity,
   shouldAnimateOverflow,
@@ -31,7 +34,7 @@ import {
 import { Switch } from '../../components/switch/Switch.tsx'
 import { Button } from '../../components/Button.tsx'
 import { Dialog } from '../../components/dialog/Dialog.tsx'
-import { usePublicConfig } from '../auth/public-config.ts'
+import { usePublicConfigState } from '../auth/public-config.ts'
 import { useTheme } from './theme.ts'
 import './account-menu.css'
 
@@ -56,10 +59,13 @@ export function AccountMenu({ user }: AccountMenuProps) {
   const pendingChanges = useSyncPendingChanges()
   const { theme, setTheme } = useTheme()
   const [open, setOpen] = useState(false)
-  const config = usePublicConfig()
+  const { config, live } = usePublicConfigState()
   const localCaSetup = config?.LOCAL_CA_SETUP === true
   const showAppVersion = config?.SHOW_APP_VERSION === true
   const backend = backendIdentity(config)
+  const updateAvailable =
+    !sessionExpired &&
+    appUpdateAvailable(frontendIdentity(), backendIdentity(live))
   const [emailOverflow, setEmailOverflow] = useState<{
     animate: boolean
     distance: number
@@ -215,20 +221,38 @@ export function AccountMenu({ user }: AccountMenuProps) {
               <Skull aria-hidden size={12} />
             </span>
           ) : (
-            <span
-              className={`sync-badge-avatar absolute -bottom-0.5 -right-0.5 grid size-3.5 place-items-center rounded-full ${statusClass}`}
-              role="status"
-              aria-label={`Sync status: ${presentation.label}`}
-              title={`Sync status: ${presentation.label}`}
-            >
-              <StatusIcon
-                aria-hidden
-                size={9}
-                className={
-                  presentation.icon === 'refresh' ? 'animate-spin' : undefined
-                }
-              />
-            </span>
+            <>
+              {updateAvailable && (
+                <span className="absolute -bottom-0.5 -left-0.5 grid size-3.5 place-items-center">
+                  <span
+                    aria-hidden
+                    className="account-update-badge-ping absolute inset-0 rounded-full"
+                  />
+                  <span
+                    className="account-update-badge sync-badge-avatar relative grid size-3.5 place-items-center rounded-full"
+                    role="status"
+                    aria-label="App update available"
+                    title="App update available"
+                  >
+                    <Download aria-hidden size={9} />
+                  </span>
+                </span>
+              )}
+              <span
+                className={`sync-badge-avatar absolute -bottom-0.5 -right-0.5 grid size-3.5 place-items-center rounded-full ${statusClass}`}
+                role="status"
+                aria-label={`Sync status: ${presentation.label}`}
+                title={`Sync status: ${presentation.label}`}
+              >
+                <StatusIcon
+                  aria-hidden
+                  size={9}
+                  className={
+                    presentation.icon === 'refresh' ? 'animate-spin' : undefined
+                  }
+                />
+              </span>
+            </>
           )}
         </span>
       </button>
@@ -341,6 +365,19 @@ export function AccountMenu({ user }: AccountMenuProps) {
             <LogOut aria-hidden size={16} />
             {sessionExpired ? 'Re-login' : 'Log out'}
           </button>
+          {updateAvailable && (
+            <button
+              className="account-update-badge flex w-full items-center gap-2 border-t border-border pt-3 text-left text-base font-medium"
+              type="button"
+              onClick={() => {
+                setOpen(false)
+                reloadForLiveShell()
+              }}
+            >
+              <Download aria-hidden size={16} />
+              Update app
+            </button>
+          )}
         </div>
           {footerLine && (
             <span className="inline-flex max-w-full truncate rounded-full border-[0.5px] border-current bg-[color-mix(in_srgb,#f59e0b_15%,rgb(var(--color-surface)))] px-2 py-0.5 text-xs font-medium text-amber-500">

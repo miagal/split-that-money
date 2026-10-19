@@ -1,5 +1,5 @@
 /// <reference lib="webworker" />
-// Custom Workbox worker: network-first HTML navigations with precache fallback for offline.
+// Custom Workbox worker: cache-first HTML on cold start, network-first when live-shell is flagged.
 import { clientsClaim } from 'workbox-core'
 import {
   cleanupOutdatedCaches,
@@ -8,6 +8,7 @@ import {
 } from 'workbox-precaching'
 import { NavigationRoute, registerRoute } from 'workbox-routing'
 import {
+  isLiveShellNavigation,
   navigationTimeoutMs,
   shouldFallbackToPrecache,
 } from './sw-navigation-rules.ts'
@@ -17,7 +18,7 @@ declare let self: ServiceWorkerGlobalScope
 const CONFIG_CACHE = 'public-config'
 const CONFIG_URL = '/api/config/public/'
 
-/** Reads the timeout from the last public config this worker stored. */
+/** Reads the live-shell timeout from the last public config this worker stored. */
 async function configuredTimeoutMs(): Promise<number> {
   try {
     const cached = await (await caches.open(CONFIG_CACHE)).match(CONFIG_URL)
@@ -29,7 +30,7 @@ async function configuredTimeoutMs(): Promise<number> {
   }
 }
 
-/** Stores the current public config for the next cold start. */
+/** Stores the current public config so the next live-shell fetch knows the timeout. */
 async function refreshConfig(): Promise<void> {
   const response = await fetch(CONFIG_URL, { credentials: 'include' })
   if (response.ok)
@@ -42,6 +43,9 @@ clientsClaim()
 registerRoute(
   new NavigationRoute(
     async ({ request, event }) => {
+      const cached = await matchPrecache('index.html')
+      if (!isLiveShellNavigation(new URL(request.url)) && cached) return cached
+
       const controller = new AbortController()
       const timeoutId = setTimeout(
         () => controller.abort(),
@@ -72,7 +76,6 @@ registerRoute(
         return response as Response
       }
 
-      const cached = await matchPrecache('index.html')
       if (cached) return cached
       if (response) return response
       return Response.error()

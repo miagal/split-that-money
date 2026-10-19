@@ -1,9 +1,13 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  LIVE_SHELL_PARAM,
   NAVIGATION_NETWORK_TIMEOUT_MS,
+  isLiveShellNavigation,
   navigationTimeoutMs,
   shouldFallbackToPrecache,
+  withLiveShellFlag,
+  withoutLiveShellFlag,
 } from './sw-navigation-rules.ts'
 
 test('uses a three-second navigation network timeout', () => {
@@ -51,4 +55,32 @@ test('uses configured shell timeout seconds and falls back for invalid values', 
   for (const value of [undefined, null, 0, -1, 'x', Number.NaN]) {
     assert.equal(navigationTimeoutMs(value), NAVIGATION_NETWORK_TIMEOUT_MS)
   }
+})
+
+test('treats stm-live-shell=1 as a live-shell navigation', () => {
+  assert.equal(LIVE_SHELL_PARAM, 'stm-live-shell')
+  assert.equal(
+    isLiveShellNavigation(new URL('https://example.test/groups?stm-live-shell=1')),
+    true,
+  )
+  assert.equal(
+    isLiveShellNavigation(new URL('https://example.test/groups')),
+    false,
+  )
+  assert.equal(
+    isLiveShellNavigation(new URL('https://example.test/groups?stm-live-shell=0')),
+    false,
+  )
+})
+
+test('adds and removes the live-shell flag without dropping other query params or hash', () => {
+  assert.equal(
+    withLiveShellFlag('https://example.test/groups?tab=1#top'),
+    '/groups?tab=1&stm-live-shell=1#top',
+  )
+  assert.equal(
+    withoutLiveShellFlag('/groups?tab=1&stm-live-shell=1#top'),
+    '/groups?tab=1#top',
+  )
+  assert.equal(withoutLiveShellFlag('/groups'), '/groups')
 })

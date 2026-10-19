@@ -34,7 +34,7 @@ services:
 
       # Days a server sign-in stays valid; offline data survives expiry and syncs after the same user signs in again.
       SESSION_COOKIE_AGE_DAYS: "30"
-      # Seconds the installed React Gui app waits for the server before starting from its cached shell.
+      # Seconds pull-to-reload and Update app wait for the server before using the cached shell. Cold start uses cache immediately.
       SHELL_NETWORK_TIMEOUT_SECONDS: "3"
       # Seconds one GUI sync request waits before aborting so Syncing cannot hang.
       SYNC_REQUEST_TIMEOUT_SECONDS: "8"

@@ -63,7 +63,7 @@ test('bypasses navigation handling only for the root certificate download', asyn
   }
 })
 
-test('registers network-first navigation before precache in the worker source', async () => {
+test('registers navigation before precache and live-shell network-first in the worker source', async () => {
   const swSource = await readFile(
     resolve(frontendDirectory, 'src/sw.ts'),
     'utf8',
@@ -77,6 +77,7 @@ test('registers network-first navigation before precache in the worker source', 
     'navigation route must be registered before precacheAndRoute',
   )
   assert.match(swSource, /matchPrecache\(['"]index\.html['"]\)/)
+  assert.match(swSource, /isLiveShellNavigation/)
   assert.match(swSource, /shouldFallbackToPrecache/)
 })
 
