@@ -32,10 +32,10 @@ def test_create_demo_group_builds_the_complete_dataset(tmp_path):
     expenses = group.expenses.prefetch_related("shares").order_by("created_at")
     settlements = group.settlements.all()
 
-    assert len(users) == 8
-    assert memberships.count() == 8
+    assert len(users) == 12
+    assert memberships.count() == 12
     assert memberships.filter(role=Membership.Role.ADMIN, user=admin).count() == 1
-    assert memberships.filter(role=Membership.Role.MEMBER).count() == 7
+    assert memberships.filter(role=Membership.Role.MEMBER).count() == 11
     assert expenses.count() == 120
     assert set(expenses.values_list("split_type", flat=True)) == {
         Expense.SplitType.EQUAL,

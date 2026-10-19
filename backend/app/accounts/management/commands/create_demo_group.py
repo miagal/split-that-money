@@ -22,9 +22,13 @@ DEMO_GROUP_NAME = "Demo house in Lisbon"
 DEMO_IDENTITIES = (
     ("admin", "Maya", "Costa", "demo-admin@demo.split-that-money.test", "DemoAdmin!2026"),
     ("member", "Leo", "Martin", "demo-leo@demo.split-that-money.test", "DemoLeo!2026"),
+    ("member", "Leo", "Mart", "demo-leo-mart@demo.split-that-money.test", "DemoLeoMart!2026"),
     ("member", "Nora", "Silva", "demo-nora@demo.split-that-money.test", "DemoNora!2026"),
+    ("member", "Nora", "Milva", "demo-nora-milva@demo.split-that-money.test", "DemoNoraMilva!2026"),
     ("member", "Sam", "Miller", "demo-sam@demo.split-that-money.test", "DemoSam!2026"),
+    ("member", "Sam", "Miller", "demo-sam-miller@demo.split-that-money.test", "DemoSamMiller!2026"),
     ("member", "Ines", "Ramos", "demo-ines@demo.split-that-money.test", "DemoInes!2026"),
+    ("member", "Ines", "Romos", "demo-ines-romos@demo.split-that-money.test", "DemoInesRomos!2026"),
     ("member", "Jonas", "Weber", "demo-jonas@demo.split-that-money.test", "DemoJonas!2026"),
     ("member", "Ava", "Brown", "demo-ava@demo.split-that-money.test", "DemoAva!2026"),
     ("member", "Noah", "Fischer", "demo-noah@demo.split-that-money.test", "DemoNoah!2026"),
@@ -98,7 +102,7 @@ class Command(BaseCommand):
 
     @staticmethod
     def _reset_memberships(group, users):
-        """Keep exactly one active admin and the seven declared demo members."""
+        """Keep exactly one active admin and the declared demo members."""
         user_ids = [user.id for user in users]
         group.memberships.exclude(user_id__in=user_ids).delete()
         group.memberships.exclude(user=users[0]).filter(role=Membership.Role.ADMIN).update(role=Membership.Role.MEMBER)

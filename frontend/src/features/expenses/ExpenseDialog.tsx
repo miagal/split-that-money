@@ -29,6 +29,7 @@ import { Dialog } from '../../components/dialog/Dialog.tsx'
 import { IconPickerPopover } from '../../components/icon-picker-popover/IconPickerPopover.tsx'
 import { IconButton } from '../../components/IconButton.tsx'
 import { normalizeAmountInput, parseMoneyToCents } from '../../lib/money.ts'
+import { compactNames, fullNames } from '../../lib/names.ts'
 import { inlineFields, toastMessage } from '../feedback/api-feedback.ts'
 import { useToast } from '../feedback/ToastProvider.tsx'
 import { openMoneyStore } from '../sync/database.ts'
@@ -110,10 +111,16 @@ export function ExpenseDialog({
   const { enqueue } = useSyncActions()
   const syncStatus = useSyncStatus()
   const toast = useToast()
-  const active = useMemo(
-    () => members.filter((member) => member.is_active),
-    [members],
-  )
+  const active = useMemo(() => {
+    const currentId = session?.id
+    const activeMembers = members.filter((member) => member.is_active)
+    if (!currentId) return activeMembers
+    // Keep membership order, but pin the signed-in member ("You") first.
+    return [
+      ...activeMembers.filter((member) => member.user.id === currentId),
+      ...activeMembers.filter((member) => member.user.id !== currentId),
+    ]
+  }, [members, session?.id])
   const activeIds = useMemo(
     () => active.map((member) => member.user.id),
     [active],
@@ -172,9 +179,20 @@ export function ExpenseDialog({
       validateSplit({ mode, amountCents, participants, values: orderedValues }),
     [amountCents, mode, orderedValues, participants],
   )
-  const memberName = (id: string) =>
-    members.find((member) => member.user.id === id)?.user.display_name ??
-    'Member'
+  const memberNames = useMemo(
+    () =>
+      compactNames(
+        members.map((membership) => membership.user),
+        { currentUserId: session?.id },
+      ),
+    [members, session?.id],
+  )
+  const memberName = (id: string) => memberNames[id] ?? 'Member'
+  const payerNames = useMemo(
+    () => fullNames(members.map((membership) => membership.user)),
+    [members],
+  )
+  const payerName = (id: string) => payerNames[id] ?? 'Member'
 
   /** Seeds exact cents from the current allocation before switching modes. */
   function changeMode(next: SplitMode): void {
@@ -425,12 +443,14 @@ export function ExpenseDialog({
           <PayerSelect
             payer={payer}
             members={active}
+            names={payerName}
             saving={saving}
             onChange={setPayer}
           />
           <ParticipantSelector
             members={active}
             selected={participants}
+            names={memberName}
             errors={errors.participants}
             saving={saving}
             onToggle={toggleParticipant}
@@ -552,15 +572,21 @@ function AmountAndDate({
   )
 }
 
-/** Renders the active-member payer selector. */
+/**
+ * Renders the active-member payer selector.
+ *
+ * @param names - Full names, with `(email)` only when the full name collides.
+ */
 function PayerSelect({
   payer,
   members,
+  names,
   saving,
   onChange,
 }: {
   payer: string
   members: MembershipDto[]
+  names: (id: string) => string
   saving: boolean
   onChange: (value: string) => void
 }) {
@@ -575,7 +601,7 @@ function PayerSelect({
       >
         {members.map((member) => (
           <option key={member.user.id} value={member.user.id}>
-            {member.user.display_name}
+            {names(member.user.id)}
           </option>
         ))}
       </select>
@@ -583,16 +609,22 @@ function PayerSelect({
   )
 }
 
-/** Renders active members as compact split-participant toggles. */
+/**
+ * Renders active members as compact split-participant toggles.
+ *
+ * @param names - Shortest unique labels for the current group, including `You`.
+ */
 function ParticipantSelector({
   members,
   selected,
+  names,
   errors,
   saving,
   onToggle,
 }: {
   members: MembershipDto[]
   selected: string[]
+  names: (id: string) => string
   errors?: string[]
   saving: boolean
   onToggle: (userId: string) => void
@@ -605,18 +637,18 @@ function ParticipantSelector({
           const active = selected.includes(member.user.id)
           return (
             <button
-              className={
+              className={`rounded-full border px-3 py-1.5 text-sm font-semibold leading-none ${
                 active
-                  ? 'rounded-full border border-accent bg-accent/10 px-3 py-1.5 text-sm font-semibold text-accent'
-                  : 'rounded-full border border-border px-3 py-1.5 text-sm text-muted'
-              }
+                  ? 'border-accent bg-accent/10 text-accent'
+                  : 'border-border text-muted'
+              }`}
               type="button"
               aria-pressed={active}
               disabled={saving}
               onClick={() => onToggle(member.user.id)}
               key={member.user.id}
             >
-              {member.user.display_name}
+              {names(member.user.id)}
             </button>
           )
         })}

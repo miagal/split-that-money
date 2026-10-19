@@ -1,4 +1,4 @@
-// Derives the shortest unique member labels for a single visible group context.
+// Derives unique member labels for a single visible group context.
 
 export type NameMember = {
   id: string
@@ -12,7 +12,7 @@ export type NameMember = {
  *
  * @param members - Group members with stable IDs and backend identity fields.
  * @param options - Optional viewer identity; when set, that member's label becomes `You`.
- * @returns A member-ID-to-label map using first name, initial, full name, then email as needed.
+ * @returns A member-ID-to-label map using first name, initial, full name, then `Name (email)` as needed.
  */
 export function compactNames(
   members: NameMember[],
@@ -26,19 +26,31 @@ export function compactNames(
     labels,
     (member) => `${member.first_name} ${member.last_name.charAt(0)}.`,
   )
-  refineCollisions(
-    members,
-    labels,
-    (member) => `${member.first_name} ${member.last_name}`,
-  )
-  refineCollisions(
-    members,
-    labels,
-    (member) => `${member.first_name} ${member.last_name} ${member.email}`,
-  )
+  refineCollisions(members, labels, fullName)
+  refineCollisions(members, labels, fullNameWithEmail)
   if (options?.currentUserId && labels.has(options.currentUserId))
     labels.set(options.currentUserId, 'You')
   return Object.fromEntries(labels)
+}
+
+/**
+ * Labels members with full names, adding `(email)` only when the full name collides.
+ *
+ * @param members - Group members with stable IDs and backend identity fields.
+ * @returns A member-ID-to-label map of full names, with email in parentheses when needed.
+ */
+export function fullNames(members: NameMember[]): Record<string, string> {
+  const labels = new Map(members.map((member) => [member.id, fullName(member)]))
+  refineCollisions(members, labels, fullNameWithEmail)
+  return Object.fromEntries(labels)
+}
+
+function fullName(member: NameMember): string {
+  return `${member.first_name} ${member.last_name}`
+}
+
+function fullNameWithEmail(member: NameMember): string {
+  return `${fullName(member)} (${member.email})`
 }
 
 /**

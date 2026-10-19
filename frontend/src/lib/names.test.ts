@@ -1,7 +1,7 @@
 // Verifies that member labels remain unique while retaining the shortest useful name.
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { compactNames } from './names.ts'
+import { compactNames, fullNames } from './names.ts'
 
 test('uses a first name when it is unique', () => {
   assert.deepEqual(
@@ -53,9 +53,9 @@ test('progresses same-first-name members through surname initial, full name, the
     ]),
     {
       '1': 'Alex B.',
-      '2': 'Alex Stone alex.stone.one@example.com',
+      '2': 'Alex Stone (alex.stone.one@example.com)',
       '3': 'Alex Smith',
-      '4': 'Alex Stone alex.stone.two@example.com',
+      '4': 'Alex Stone (alex.stone.two@example.com)',
     },
   )
 })
@@ -80,6 +80,36 @@ test('labels the current user as You after compact names are resolved', () => {
       { currentUserId: 'me' },
     ),
     { me: 'You', '2': 'Grace' },
+  )
+})
+
+test('keeps a unique full name and adds email in parentheses only when it collides', () => {
+  assert.deepEqual(
+    fullNames([
+      {
+        id: '1',
+        first_name: 'Ada',
+        last_name: 'Lovelace',
+        email: 'ada@example.com',
+      },
+      {
+        id: '2',
+        first_name: 'Sam',
+        last_name: 'Miller',
+        email: 'sam@example.com',
+      },
+      {
+        id: '3',
+        first_name: 'Sam',
+        last_name: 'Miller',
+        email: 'sam.two@example.com',
+      },
+    ]),
+    {
+      '1': 'Ada Lovelace',
+      '2': 'Sam Miller (sam@example.com)',
+      '3': 'Sam Miller (sam.two@example.com)',
+    },
   )
 })
 
