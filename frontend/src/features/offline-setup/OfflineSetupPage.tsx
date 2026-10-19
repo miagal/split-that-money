@@ -3,20 +3,17 @@
 import { useEffect } from 'react'
 import { Download, House } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
-import { getPublicConfig } from '../auth/auth-api.ts'
+import { usePublicConfig } from '../auth/public-config.ts'
 
 /** Renders the server-trust instructions and local certificate download. */
 export function OfflineSetupPage() {
   const navigate = useNavigate()
+  const config = usePublicConfig()
 
   // Edge-TLS deployments have no local root to install; leave this route.
   useEffect(() => {
-    void getPublicConfig()
-      .then((config) => {
-        if (!config.LOCAL_CA_SETUP) navigate('/', { replace: true })
-      })
-      .catch(() => undefined)
-  }, [navigate])
+    if (config && !config.LOCAL_CA_SETUP) navigate('/', { replace: true })
+  }, [config, navigate])
 
   return (
     <section className="mx-auto grid max-w-5xl gap-6 px-3 py-5 sm:p-8">

@@ -29,6 +29,7 @@ function loginHarness(
     online?: boolean
     cachedUser?: UserDto | null
     getPublicConfig?: () => Promise<{ ALLOW_SELF_REGISTRATION: boolean }>
+    storedPublicConfig?: { ALLOW_SELF_REGISTRATION: boolean }
     login?: () => Promise<UserDto>
     cachedSessionAllowed?: boolean
     sessionExpired?: boolean
@@ -177,6 +178,9 @@ function loginHarness(
         options.getPublicConfig ??
         (async () => ({ ALLOW_SELF_REGISTRATION: false })),
       register: async () => undefined,
+    },
+    './public-config.ts': {
+      usePublicConfig: () => options.storedPublicConfig ?? null,
     },
     'lucide-react': {
       LogIn: () => null,
@@ -489,6 +493,14 @@ test('offline sign-in asks for a connection and does not call login', async () =
   assert.deepEqual(page.messages, [
     { kind: 'error', message: 'You need a connection to sign in.' },
   ])
+})
+
+test('shows registration from stored config when public config cannot be read', async () => {
+  const page = loginHarness({
+    storedPublicConfig: { ALLOW_SELF_REGISTRATION: true },
+    getPublicConfig: () => Promise.reject(new TypeError('Failed to fetch')),
+  })
+  assert.match(content(await shown(page)), /Create an account/)
 })
 
 test('public config transport failure does not toast', async () => {

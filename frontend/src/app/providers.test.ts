@@ -155,6 +155,7 @@ function authHarness(
         SYNC_REQUEST_TIMEOUT_SECONDS: 8,
         LOCAL_CA_SETUP: true,
       }),
+      readStoredPublicConfig: () => null,
       login: async () => options.loginUser ?? user,
       logout: options.logout ?? (async () => undefined),
     },

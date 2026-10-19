@@ -2,7 +2,12 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { ApiError, isServerUnreachable } from '../../api/client.ts'
-import { getPublicConfig, getSession, logout } from './auth-api.ts'
+import {
+  getPublicConfig,
+  getSession,
+  logout,
+  readStoredPublicConfig,
+} from './auth-api.ts'
 
 test('returns null for a structured unauthenticated session response', async () => {
   const originalFetch = globalThis.fetch
@@ -135,6 +140,73 @@ test('getPublicConfig falls back to the last stored config only when the server 
   globalThis.fetch = (async () =>
     new Response(null, { status: 502 })) as typeof fetch
   await assert.rejects(() => getPublicConfig(), ApiError)
+})
+
+test('getPublicConfig shares one in-flight request', async (t) => {
+  const originalFetch = globalThis.fetch
+  const values = new Map<string, string>()
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+    },
+  })
+  t.after(() => {
+    globalThis.fetch = originalFetch
+    Reflect.deleteProperty(globalThis, 'localStorage')
+  })
+  const config = {
+    ALLOW_SELF_REGISTRATION: false,
+    SHOW_APP_VERSION: false,
+    SHELL_NETWORK_TIMEOUT_SECONDS: 3,
+    SYNC_REQUEST_TIMEOUT_SECONDS: 8,
+    LOCAL_CA_SETUP: false,
+  }
+  let fetches = 0
+  globalThis.fetch = (async () => {
+    fetches += 1
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    return new Response(JSON.stringify(config), { status: 200 })
+  }) as typeof fetch
+  const [first, second] = await Promise.all([
+    getPublicConfig(),
+    getPublicConfig(),
+  ])
+  assert.equal(fetches, 1)
+  assert.deepEqual(first, config)
+  assert.deepEqual(second, config)
+})
+
+test('readStoredPublicConfig returns the last stored copy without using the network', async (t) => {
+  const originalFetch = globalThis.fetch
+  const values = new Map<string, string>()
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+    },
+  })
+  t.after(() => {
+    globalThis.fetch = originalFetch
+    Reflect.deleteProperty(globalThis, 'localStorage')
+  })
+  globalThis.fetch = (async () => {
+    throw new Error('network should not run')
+  }) as typeof fetch
+  assert.equal(readStoredPublicConfig(), null)
+  const stored = {
+    ALLOW_SELF_REGISTRATION: false,
+    SHOW_APP_VERSION: true,
+    SHELL_NETWORK_TIMEOUT_SECONDS: 3,
+    SYNC_REQUEST_TIMEOUT_SECONDS: 8,
+    LOCAL_CA_SETUP: false,
+    APP_VERSION: 'v1.2.3',
+    APP_GIT: 'abc1234',
+  }
+  values.set('split-that-money-public-config', JSON.stringify(stored))
+  assert.deepEqual(readStoredPublicConfig(), stored)
 })
 
 test(

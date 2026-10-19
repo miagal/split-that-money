@@ -48,18 +48,13 @@ function renderOfflineSetupPage(
               replace: navigationOptions.replace ?? false,
             }),
         },
-        '../auth/auth-api.ts': {
-          getPublicConfig: () => ({
-            then(resolve: (config: Record<string, unknown>) => void) {
-              resolve({
-                ALLOW_SELF_REGISTRATION: true,
-                SHOW_APP_VERSION: false,
-                SHELL_NETWORK_TIMEOUT_SECONDS: 3,
-                SYNC_REQUEST_TIMEOUT_SECONDS: 8,
-                LOCAL_CA_SETUP: options.localCaSetup ?? true,
-              })
-              return { catch: () => undefined }
-            },
+        '../auth/public-config.ts': {
+          usePublicConfig: () => ({
+            ALLOW_SELF_REGISTRATION: true,
+            SHOW_APP_VERSION: false,
+            SHELL_NETWORK_TIMEOUT_SECONDS: 3,
+            SYNC_REQUEST_TIMEOUT_SECONDS: 8,
+            LOCAL_CA_SETUP: options.localCaSetup ?? true,
           }),
         },
         'lucide-react': { Download: 'Download', House: 'House' },

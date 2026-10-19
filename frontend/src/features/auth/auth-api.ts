@@ -90,12 +90,39 @@ export async function logout(options?: { timeoutMs?: number }): Promise<void> {
 const PUBLIC_CONFIG_KEY = 'split-that-money-public-config'
 
 /**
+ * Reads the last stored public config without waiting for the network.
+ *
+ * @returns The stored copy, or null when storage is missing or unreadable.
+ */
+export function readStoredPublicConfig(): PublicConfigDto | null {
+  try {
+    const stored = localStorage.getItem(PUBLIC_CONFIG_KEY)
+    if (!stored) return null
+    return JSON.parse(stored) as PublicConfigDto
+  } catch {
+    return null
+  }
+}
+
+let publicConfigInFlight: Promise<PublicConfigDto> | null = null
+
+/**
  * Reads public feature flags, falling back to the last stored copy while the server is unreachable.
+ *
+ * Concurrent callers share one request so cache writes and live updates stay in lockstep.
  *
  * @returns The server-controlled public configuration.
  * @throws {ApiError} When the server answers with a real error, or is unreachable with no stored copy.
  */
-export async function getPublicConfig(): Promise<PublicConfigDto> {
+export function getPublicConfig(): Promise<PublicConfigDto> {
+  publicConfigInFlight ??= loadPublicConfig().finally(() => {
+    publicConfigInFlight = null
+  })
+  return publicConfigInFlight
+}
+
+/** Fetches public config once and stores it when the server answers. */
+async function loadPublicConfig(): Promise<PublicConfigDto> {
   try {
     const config = await client.request<PublicConfigDto>('config/public/')
     try {
@@ -106,12 +133,8 @@ export async function getPublicConfig(): Promise<PublicConfigDto> {
     return config
   } catch (error) {
     if (isServerUnreachable(error)) {
-      try {
-        const stored = localStorage.getItem(PUBLIC_CONFIG_KEY)
-        if (stored) return JSON.parse(stored) as PublicConfigDto
-      } catch {
-        // Unreadable storage behaves like no stored copy.
-      }
+      const stored = readStoredPublicConfig()
+      if (stored) return stored
     }
     throw error
   }

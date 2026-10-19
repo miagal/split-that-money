@@ -17,6 +17,7 @@ import {
   getSession,
   login as requestLogin,
   logout as requestLogout,
+  readStoredPublicConfig,
 } from '../features/auth/auth-api.ts'
 import {
   SESSION_BOOT_TIMEOUT_MS,
@@ -152,13 +153,19 @@ function SyncProvider({ children }: AppProvidersProps) {
     const onOffline = () => current?.offline()
     window.addEventListener('online', onOnline)
     window.addEventListener('offline', onOffline)
+    // Cached timeout starts the controller now; a later live value applies on the next app start.
+    const storedConfig = readStoredPublicConfig()
     void Promise.all([
       openMoneyStore(),
-      getPublicConfig()
-        .then((config) =>
-          syncRequestTimeoutMs(config.SYNC_REQUEST_TIMEOUT_SECONDS),
-        )
-        .catch(() => SYNC_REQUEST_TIMEOUT_MS),
+      storedConfig
+        ? Promise.resolve(
+            syncRequestTimeoutMs(storedConfig.SYNC_REQUEST_TIMEOUT_SECONDS),
+          )
+        : getPublicConfig()
+            .then((config) =>
+              syncRequestTimeoutMs(config.SYNC_REQUEST_TIMEOUT_SECONDS),
+            )
+            .catch(() => SYNC_REQUEST_TIMEOUT_MS),
     ])
       .then(([opened, requestTimeoutMs]) => {
         if (!active) {

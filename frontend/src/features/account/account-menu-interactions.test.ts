@@ -36,6 +36,12 @@ function menuHarness(
     appGit?: string
     showAppVersion?: boolean
     omitShowAppVersion?: boolean
+    stored?: {
+      appVersion?: string
+      appGit?: string
+      showAppVersion?: boolean
+      localCaSetup?: boolean
+    }
   } = {},
 ) {
   const { online, sessionExpired } =
@@ -111,26 +117,28 @@ function menuHarness(
       useSyncStatus: () => 'idle',
       useSyncPendingChanges: () => 0,
     },
-    '../auth/auth-api.ts': {
-      getPublicConfig: () => ({
-        then(resolve: (config: Record<string, unknown>) => void) {
-          if (configFails) return { catch: () => undefined }
-          resolve({
-            ALLOW_SELF_REGISTRATION: true,
-            SHELL_NETWORK_TIMEOUT_SECONDS: 3,
-            SYNC_REQUEST_TIMEOUT_SECONDS: 8,
-            LOCAL_CA_SETUP: configOptions.localCaSetup ?? true,
-            APP_VERSION: configOptions.appVersion ?? 'lcl',
-            APP_GIT: configOptions.appGit ?? '',
-            ...(configOptions.omitShowAppVersion
-              ? {}
-              : {
-                  SHOW_APP_VERSION: configOptions.showAppVersion ?? false,
-                }),
-          })
-          return { catch: () => undefined }
-        },
-      }),
+    '../auth/public-config.ts': {
+      usePublicConfig: () => {
+        if (configFails && !configOptions.stored) return null
+        const source = configFails ? configOptions.stored : configOptions
+        return {
+          ALLOW_SELF_REGISTRATION: true,
+          SHELL_NETWORK_TIMEOUT_SECONDS: 3,
+          SYNC_REQUEST_TIMEOUT_SECONDS: 8,
+          LOCAL_CA_SETUP:
+            source?.localCaSetup ?? configOptions.localCaSetup ?? true,
+          APP_VERSION: source?.appVersion ?? configOptions.appVersion ?? 'lcl',
+          APP_GIT: source?.appGit ?? configOptions.appGit ?? '',
+          ...(configFails || !configOptions.omitShowAppVersion
+            ? {
+                SHOW_APP_VERSION:
+                  source?.showAppVersion ??
+                  configOptions.showAppVersion ??
+                  false,
+              }
+            : {}),
+        }
+      },
     },
     './account-menu-rules.ts': {
       frontendIdentity,
@@ -253,6 +261,20 @@ test('hides Offline setup until a config confirms local CA setup', () => {
   assert.equal(
     nodes(menu.render()).some((node) => content(node) === 'Offline setup'),
     false,
+  )
+})
+
+test('shows Offline setup from stored config when public config cannot be read', () => {
+  const menu = menuHarness({ is_staff: false, is_superuser: false }, false, {
+    configFails: true,
+    stored: { showAppVersion: false, localCaSetup: true },
+  })
+  nodes(menu.render())
+    .find((node) => node.props['aria-label'] === 'Open account menu')!
+    .props.onClick()
+  assert.equal(
+    nodes(menu.render()).some((node) => content(node) === 'Offline setup'),
+    true,
   )
 })
 
@@ -507,5 +529,21 @@ test('hides the version footer when public config cannot be read', () => {
       String(node.props.className ?? '').includes('text-xs'),
     ),
     false,
+  )
+})
+
+test('shows the last stored version footer when public config cannot be read', () => {
+  const menu = menuHarness({ is_staff: false, is_superuser: false }, false, {
+    configFails: true,
+    stored: { appVersion: 'v1.2.3', appGit: 'abc1234', showAppVersion: true },
+  })
+  nodes(menu.render())
+    .find((node) => node.props['aria-label'] === 'Open account menu')!
+    .props.onClick()
+  assert.equal(
+    nodes(menu.render()).some(
+      (node) => content(node) === 'fe: lcl / be: v1.2.3',
+    ),
+    true,
   )
 })

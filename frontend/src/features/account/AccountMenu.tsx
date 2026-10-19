@@ -31,7 +31,7 @@ import {
 import { Switch } from '../../components/switch/Switch.tsx'
 import { Button } from '../../components/Button.tsx'
 import { Dialog } from '../../components/dialog/Dialog.tsx'
-import { getPublicConfig } from '../auth/auth-api.ts'
+import { usePublicConfig } from '../auth/public-config.ts'
 import { useTheme } from './theme.ts'
 import './account-menu.css'
 
@@ -56,11 +56,10 @@ export function AccountMenu({ user }: AccountMenuProps) {
   const pendingChanges = useSyncPendingChanges()
   const { theme, setTheme } = useTheme()
   const [open, setOpen] = useState(false)
-  // Hidden until a live or stored config confirms local mode; the setup needs the server anyway.
-  const [localCaSetup, setLocalCaSetup] = useState(false)
-  const [showAppVersion, setShowAppVersion] = useState(false)
-  const [backend, setBackend] =
-    useState<ReturnType<typeof backendIdentity>>(null)
+  const config = usePublicConfig()
+  const localCaSetup = config?.LOCAL_CA_SETUP === true
+  const showAppVersion = config?.SHOW_APP_VERSION === true
+  const backend = backendIdentity(config)
   const [emailOverflow, setEmailOverflow] = useState<{
     animate: boolean
     distance: number
@@ -92,17 +91,6 @@ export function AccountMenu({ user }: AccountMenuProps) {
   const footerLine = showAppVersion
     ? versionFooterLine(frontendIdentity(), backend)
     : null
-
-  // Shows Offline setup (local mode only) and the version pill only after public config resolves.
-  useEffect(() => {
-    void getPublicConfig()
-      .then((config) => {
-        setLocalCaSetup(config.LOCAL_CA_SETUP)
-        setShowAppVersion(config.SHOW_APP_VERSION === true)
-        setBackend(backendIdentity(config))
-      })
-      .catch(() => undefined)
-  }, [])
 
   useEffect(() => {
     if (!open) return

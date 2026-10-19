@@ -17,6 +17,7 @@ import {
 import { useToast } from '../feedback/ToastProvider.tsx'
 import { openMoneyStore } from '../sync/database.ts'
 import { getPublicConfig, register } from './auth-api.ts'
+import { usePublicConfig } from './public-config.ts'
 
 type LoginFields = { email: string; password: string }
 type RegisterFields = LoginFields & { firstName: string; lastName: string }
@@ -46,7 +47,8 @@ export function LoginPage() {
   const [loginFields, setLoginFields] = useState(emptyLogin)
   const [registrationFields, setRegistrationFields] =
     useState(emptyRegistration)
-  const [registrationAllowed, setRegistrationAllowed] = useState(false)
+  const config = usePublicConfig()
+  const registrationAllowed = config?.ALLOW_SELF_REGISTRATION === true
   const [showRegistration, setShowRegistration] = useState(false)
   const [loginErrors, setLoginErrors] = useState<FieldErrors>({})
   const [registrationErrors, setRegistrationErrors] = useState<FieldErrors>({})
@@ -104,13 +106,11 @@ export function LoginPage() {
   }, [cacheEpoch, cachedSessionAllowed, pendingChanges])
 
   useEffect(() => {
-    void getPublicConfig()
-      .then((config) => setRegistrationAllowed(config.ALLOW_SELF_REGISTRATION))
-      .catch((reason: unknown) => {
-        if (isServerUnreachable(reason)) return
-        const message = authToastMessage(reason)
-        if (message) toastRef.current.error(message)
-      })
+    void getPublicConfig().catch((reason: unknown) => {
+      if (isServerUnreachable(reason)) return
+      const message = authToastMessage(reason)
+      if (message) toastRef.current.error(message)
+    })
   }, [])
 
   async function submitLogin(event: FormEvent<HTMLFormElement>): Promise<void> {
