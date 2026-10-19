@@ -1,0 +1,5 @@
+/* Waiting-to-sync badge on money-row icons; same fill in light and dark. */
+
+.sync-badge-waiting {
+  background-color: rgb(48 54 58);
+}

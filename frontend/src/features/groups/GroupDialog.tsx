@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Check, X } from 'lucide-react'
 import type { GroupCreateDto } from '../../api/contracts.ts'
-import { Dialog } from '../../components/Dialog.tsx'
+import { Dialog } from '../../components/dialog/Dialog.tsx'
 import { IconButton } from '../../components/IconButton.tsx'
-import { IconPickerPopover } from '../../components/IconPickerPopover.tsx'
+import { IconPickerPopover } from '../../components/icon-picker-popover/IconPickerPopover.tsx'
 import {
   emojiInputValue,
   groupCreateInput,

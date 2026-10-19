@@ -1,0 +1,12 @@
+/* Positions the caller-owned icon picker as a raised surface next to its anchor. */
+
+.icon-picker-popover {
+  position: fixed;
+  z-index: 20;
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  background: rgb(var(--color-surface-raised));
+  border: 1px solid rgb(var(--color-border));
+  border-radius: 0.75rem;
+  box-shadow: 0 0.75rem 2rem rgb(var(--color-foreground) / 0.18);
+}

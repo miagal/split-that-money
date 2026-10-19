@@ -7,7 +7,8 @@ import {
   type ReactNode,
   type SyntheticEvent,
 } from 'react'
-import { OverlayScrollArea } from './OverlayScrollArea.tsx'
+import { OverlayScrollArea } from '../OverlayScrollArea.tsx'
+import './dialog.css'
 import {
   dialogSyncAction,
   shouldCloseDialog,

@@ -18,7 +18,7 @@ export function timeoutFor(kind: ToastKind): number {
   return kind === 'error' ? 8_000 : 5_000
 }
 
-/** Exit fade duration in ms. Keep in sync with `.toast-exit` in `index.css`. */
+/** Exit fade duration in ms. Keep in sync with `.toast-exit` in `toast.css`. */
 export const TOAST_EXIT_MS = 500
 
 /**

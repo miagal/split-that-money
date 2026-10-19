@@ -3,7 +3,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import type { AdminUserUpdateDto, UserDto } from '../../api/contracts.ts'
 import { Button } from '../../components/Button.tsx'
-import { Dialog } from '../../components/Dialog.tsx'
+import { Dialog } from '../../components/dialog/Dialog.tsx'
 import { inlineFields, toastMessage } from '../feedback/api-feedback.ts'
 import { useToast } from '../feedback/ToastProvider.tsx'
 

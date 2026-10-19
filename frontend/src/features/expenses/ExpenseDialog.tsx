@@ -25,8 +25,8 @@ import type {
   MembershipDto,
 } from '../../api/contracts.ts'
 import { useAuth, useSyncActions, useSyncStatus } from '../../app/providers.tsx'
-import { Dialog } from '../../components/Dialog.tsx'
-import { IconPickerPopover } from '../../components/IconPickerPopover.tsx'
+import { Dialog } from '../../components/dialog/Dialog.tsx'
+import { IconPickerPopover } from '../../components/icon-picker-popover/IconPickerPopover.tsx'
 import { IconButton } from '../../components/IconButton.tsx'
 import { normalizeAmountInput, parseMoneyToCents } from '../../lib/money.ts'
 import { inlineFields, toastMessage } from '../feedback/api-feedback.ts'

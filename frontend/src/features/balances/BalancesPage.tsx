@@ -4,7 +4,7 @@ import { ArrowRight, Handshake, Plus } from 'lucide-react'
 import type { ExpenseDto, SettlementDto } from '../../api/contracts.ts'
 import { useAuth, useSyncStatus } from '../../app/providers.tsx'
 import { Avatar } from '../../components/Avatar.tsx'
-import { MoneyRowMark } from '../../components/MoneyRowMark.tsx'
+import { MoneyRowMark } from '../../components/money-row-mark/MoneyRowMark.tsx'
 import { formatMoney } from '../../lib/money.ts'
 import {
   blurAfterPress,
@@ -13,6 +13,7 @@ import {
   pressableMoneyRowClass,
 } from '../../lib/pressable-row.ts'
 import { compactNames } from '../../lib/names.ts'
+import './balances.css'
 import { useGroup } from '../groups/group-context.ts'
 import { isOutgoingTransferForUser } from '../groups/group-view-rules.ts'
 import { openMoneyStore } from '../sync/database.ts'
@@ -118,7 +119,7 @@ export function BalancesPage() {
     <section className="grid gap-6">
       {canManageMoney && (
         <button
-          className="fixed bottom-4 right-4 z-30 grid size-11 place-items-center rounded-full bg-accent text-accent-contrast md:hidden"
+          className="fixed bottom-4 right-[1.125rem] z-30 grid size-11 place-items-center rounded-full bg-accent text-accent-contrast md:hidden"
           type="button"
           aria-label="Record payment"
           onClick={openPaymentDialog}

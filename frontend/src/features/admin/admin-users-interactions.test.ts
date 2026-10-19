@@ -89,8 +89,10 @@ function adminUsersHarness(
     '../feedback/api-feedback.ts': feedback,
     './admin-user-api.ts': api,
     '../../components/Button.tsx': { Button: 'Button' },
-    '../../components/Dialog.tsx': { Dialog: 'Dialog' },
-    '../../components/ConfirmDialog.tsx': { ConfirmDialog: 'ConfirmDialog' },
+    '../../components/dialog/Dialog.tsx': { Dialog: 'Dialog' },
+    '../../components/dialog/ConfirmDialog.tsx': {
+      ConfirmDialog: 'ConfirmDialog',
+    },
     'react-router-dom': { Link: 'Link' },
     '../expenses/swipe-reveal.ts': {
       isNestedInteractiveTarget: () => false,
@@ -119,6 +121,7 @@ function adminUsersHarness(
     runInNewContext(compiled, {
       exports,
       require: (name: string) => {
+        if (name.endsWith('.css')) return {}
         if (name in stubs) return stubs[name]
         if (name === './AdminUserDialog.tsx') return load(new URL(name, path))
         if (name === 'react/jsx-runtime' || name === 'lucide-react')

@@ -7,7 +7,7 @@ import type { UserDto } from '../../api/contracts.ts'
 import { blocksAccountSwitch } from '../../app/auth-boot-rules.ts'
 import { useAuth } from '../../app/providers.tsx'
 import { nextPathForSession } from '../../app/router-rules.ts'
-import { ConfirmDialog } from '../../components/ConfirmDialog.tsx'
+import { ConfirmDialog } from '../../components/dialog/ConfirmDialog.tsx'
 import {
   AUTH_CONNECTION_MESSAGE,
   authToastMessage,

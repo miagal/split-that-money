@@ -61,22 +61,26 @@ test('nested-content pull reloads at the threshold while dialog pulls are ignore
         },
       },
     },
-    require: (name: string) =>
-      ({
-        react: {
-          useRef: (value: unknown) => ({
-            current: refCount++ === 0 ? region : value,
-          }),
-          useState: (value: unknown) => [value, () => undefined],
-          useEffect: (effect: () => void) => {
-            effects.push(effect)
+    require: (name: string) => {
+      if (name.endsWith('.css')) return {}
+      return (
+        {
+          react: {
+            useRef: (value: unknown) => ({
+              current: refCount++ === 0 ? region : value,
+            }),
+            useState: (value: unknown) => [value, () => undefined],
+            useEffect: (effect: () => void) => {
+              effects.push(effect)
+            },
           },
-        },
-        'react/jsx-runtime': {
-          jsx: (_type: unknown, props: unknown) => props,
-          jsxs: (_type: unknown, props: unknown) => props,
-        },
-      })[name] ?? require(name),
+          'react/jsx-runtime': {
+            jsx: (_type: unknown, props: unknown) => props,
+            jsxs: (_type: unknown, props: unknown) => props,
+          },
+        }[name] ?? require(name)
+      )
+    },
   })
   exports.PullToReload({
     children: 'nested content',

@@ -8,7 +8,7 @@ import {
   useNavigate,
 } from 'react-router-dom'
 import { AccountMenu } from '../features/account/AccountMenu.tsx'
-import { PullToReload } from '../components/PullToReload.tsx'
+import { PullToReload } from '../components/pull-to-reload/PullToReload.tsx'
 import { LoginPage } from '../features/auth/LoginPage.tsx'
 import { GroupsPage } from '../features/groups/GroupsPage.tsx'
 import { GroupLayout } from '../features/groups/GroupLayout.tsx'

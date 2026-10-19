@@ -149,8 +149,8 @@ function menuHarness(
     },
     '../../app/router-rules.ts': routeRules,
     '../../components/Button.tsx': { Button: 'button' },
-    '../../components/Dialog.tsx': { Dialog: 'dialog' },
-    '../../components/Switch.tsx': {
+    '../../components/dialog/Dialog.tsx': { Dialog: 'dialog' },
+    '../../components/switch/Switch.tsx': {
       Switch: (props: Record<string, unknown>) => ({ type: 'switch', props }),
     },
   }
@@ -170,7 +170,10 @@ function menuHarness(
         removeEventListener: () => undefined,
       }),
     },
-    require: (name: string) => stubs[name] ?? require(name),
+    require: (name: string) => {
+      if (name.endsWith('.css')) return {}
+      return stubs[name] ?? require(name)
+    },
   })
   return {
     render(): Node {

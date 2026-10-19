@@ -1,6 +1,6 @@
 // Composes the existing native dialog and shared buttons into a small destructive confirmation control.
 import { type ReactNode } from 'react'
-import { Button } from './Button.tsx'
+import { Button } from '../Button.tsx'
 import { Dialog } from './Dialog.tsx'
 import { confirmDialogCloseAction } from './confirm-dialog-rules.ts'
 

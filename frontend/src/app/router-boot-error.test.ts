@@ -50,7 +50,9 @@ function compileRouter(
           createBrowserRouter: () => undefined,
           useNavigate: () => navigate,
         },
-        '../components/PullToReload.tsx': { PullToReload: 'PullToReload' },
+        '../components/pull-to-reload/PullToReload.tsx': {
+          PullToReload: 'PullToReload',
+        },
         '../features/account/AccountMenu.tsx': { AccountMenu: 'AccountMenu' },
         '../features/auth/LoginPage.tsx': { LoginPage: 'LoginPage' },
         '../features/groups/GroupsPage.tsx': { GroupsPage: 'GroupsPage' },

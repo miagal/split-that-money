@@ -1,0 +1,51 @@
+/* Lays out the native dialog surface, scroll body, and footer used by Dialog. */
+
+.dialog-surface {
+  width: min(32rem, calc(100vw - 2rem));
+  margin: auto;
+  padding: 0;
+  color: rgb(var(--color-foreground));
+  background: rgb(var(--color-surface-raised));
+  border: 1px solid rgb(var(--color-border));
+  border-radius: 1rem;
+  box-shadow: 0 1.5rem 4rem rgb(var(--color-foreground) / 0.24);
+}
+
+.dialog-surface::backdrop {
+  background: rgb(var(--color-foreground) / 0.35);
+}
+
+.dialog-surface > h2 {
+  padding: 1.5rem 1.5rem 0;
+}
+
+.dialog-body {
+  max-height: 70svh;
+  padding: 1rem 1.5rem 0;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  background: rgb(var(--color-surface-raised));
+  border-top: 1px solid rgb(var(--color-border));
+}
+
+.app-shell:has(.dialog-surface[open]) .app-scroll-region {
+  overflow-y: hidden;
+}
+
+.dialog-surface,
+.dialog-surface .os-viewport {
+  overscroll-behavior-y: contain;
+}
+
+@media (max-width: 767px) {
+  .dialog-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
+  }
+}

@@ -28,11 +28,12 @@ import {
   syncPresentation,
   versionFooterLine,
 } from './account-menu-rules.ts'
-import { Switch } from '../../components/Switch.tsx'
+import { Switch } from '../../components/switch/Switch.tsx'
 import { Button } from '../../components/Button.tsx'
-import { Dialog } from '../../components/Dialog.tsx'
+import { Dialog } from '../../components/dialog/Dialog.tsx'
 import { getPublicConfig } from '../auth/auth-api.ts'
 import { useTheme } from './theme.ts'
+import './account-menu.css'
 
 type AccountMenuProps = { user: UserDto }
 

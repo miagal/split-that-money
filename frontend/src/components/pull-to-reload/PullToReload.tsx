@@ -1,6 +1,7 @@
 // Adds a touch pull gesture to the authenticated app's existing scroll region.
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { pullToReloadState, shouldPreventPull } from './pull-to-reload-rules.ts'
+import './pull-to-reload.css'
 
 const threshold = 72
 

@@ -302,7 +302,7 @@ function pageHarness(
     '../sync/pending-marks.ts': {
       entityOutboxStatus: () => new Map(),
     },
-    '../../components/MoneyRowMark.tsx': {
+    '../../components/money-row-mark/MoneyRowMark.tsx': {
       MoneyRowMark: ({ children }: { children?: unknown }) => children ?? null,
     },
     'react-router-dom': { useNavigate: () => () => {}, Link: 'a' },

@@ -136,7 +136,7 @@ function loginHarness(
         pendingChanges: async () => options.pending ?? 0,
       }),
     },
-    '../../components/ConfirmDialog.tsx': {
+    '../../components/dialog/ConfirmDialog.tsx': {
       ConfirmDialog: ({
         open,
         title,

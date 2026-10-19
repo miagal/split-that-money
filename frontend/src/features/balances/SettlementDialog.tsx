@@ -3,7 +3,7 @@ import { useState, type FormEvent } from 'react'
 import { Check, X } from 'lucide-react'
 import type { MembershipDto, SettlementDto } from '../../api/contracts.ts'
 import { useAuth, useSyncActions, useSyncStatus } from '../../app/providers.tsx'
-import { Dialog } from '../../components/Dialog.tsx'
+import { Dialog } from '../../components/dialog/Dialog.tsx'
 import { IconButton } from '../../components/IconButton.tsx'
 import {
   formatMoney,

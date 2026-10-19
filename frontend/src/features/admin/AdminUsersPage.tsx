@@ -10,13 +10,14 @@ import {
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import type { UserDto } from '../../api/contracts.ts'
-import { ConfirmDialog } from '../../components/ConfirmDialog.tsx'
+import { ConfirmDialog } from '../../components/dialog/ConfirmDialog.tsx'
 import { toastMessage } from '../feedback/api-feedback.ts'
 import { useToast } from '../feedback/ToastProvider.tsx'
 import {
   isNestedInteractiveTarget,
   useSwipeReveal,
 } from '../expenses/swipe-reveal.ts'
+import '../expenses/swipe-reveal.css'
 import { desktopSidebarClass } from '../groups/group-view-rules.ts'
 import {
   createAdminUser,
@@ -174,7 +175,7 @@ export function AdminUsersPage() {
           </Link>
         </div>
         <button
-          className="fixed bottom-4 right-4 z-30 grid size-11 place-items-center rounded-full bg-accent text-accent-contrast md:hidden"
+          className="fixed bottom-4 right-[1.125rem] z-30 grid size-11 place-items-center rounded-full bg-accent text-accent-contrast md:hidden"
           type="button"
           aria-label="Add user"
           disabled={busy}

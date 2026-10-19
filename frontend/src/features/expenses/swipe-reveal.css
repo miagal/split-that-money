@@ -1,0 +1,29 @@
+/* Horizontal swipe-to-reveal track used by expense and admin rows. */
+
+.swipe-reveal-track {
+  position: relative;
+  overflow: hidden;
+}
+
+.swipe-reveal-content {
+  position: relative;
+  transition: transform 160ms ease-out;
+}
+
+.swipe-reveal-track[data-revealed='true'] .swipe-reveal-content {
+  transform: translateX(-4.5rem);
+}
+
+.swipe-reveal-action {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 4.5rem;
+}
+
+@media (max-width: 767px) {
+  .swipe-reveal-content {
+    touch-action: pan-y;
+  }
+}

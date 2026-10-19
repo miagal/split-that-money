@@ -1,0 +1,45 @@
+/* Account-menu sync badge and overflowing-email marquee, also reused on Settings. */
+
+/*
+ * Compact sync badge on the account avatar.
+ * Light uses the border token so the disc stays visible on white; dark uses
+ * the raised surface so it sits flush on the avatar fill.
+ */
+.sync-badge-avatar {
+  background-color: rgb(var(--color-surface-raised));
+}
+
+:root[data-theme='light'] .sync-badge-avatar {
+  background-color: rgb(var(--color-border));
+}
+
+@keyframes account-menu-email-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(var(--account-menu-email-shift));
+  }
+}
+
+.account-menu-email-track {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.account-menu-email-marquee {
+  display: inline-block;
+  animation: account-menu-email-marquee 3s ease-in-out 700ms infinite alternate;
+}
+
+.account-menu-email-track:hover .account-menu-email-marquee,
+.account-menu-email-track:focus .account-menu-email-marquee {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .account-menu-email-marquee {
+    animation: none;
+  }
+}

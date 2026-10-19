@@ -22,7 +22,7 @@ import type {
   SuggestedTransferDto,
 } from '../../api/contracts.ts'
 import { useAuth, useSyncStatus } from '../../app/providers.tsx'
-import { MoneyRowMark } from '../../components/MoneyRowMark.tsx'
+import { MoneyRowMark } from '../../components/money-row-mark/MoneyRowMark.tsx'
 import { expenseIconComponent } from '../../lib/icons.ts'
 import { formatMoney } from '../../lib/money.ts'
 import { compactNames } from '../../lib/names.ts'

@@ -19,9 +19,9 @@ import type {
 } from '../../api/contracts.ts'
 import { Avatar } from '../../components/Avatar.tsx'
 import { Button } from '../../components/Button.tsx'
-import { ConfirmDialog } from '../../components/ConfirmDialog.tsx'
+import { ConfirmDialog } from '../../components/dialog/ConfirmDialog.tsx'
 import { IconButton } from '../../components/IconButton.tsx'
-import { IconPickerPopover } from '../../components/IconPickerPopover.tsx'
+import { IconPickerPopover } from '../../components/icon-picker-popover/IconPickerPopover.tsx'
 import { useAuth } from '../../app/providers.tsx'
 import { isGroupIcon } from '../../lib/icons.ts'
 import { moneyListRowClass } from '../../lib/pressable-row.ts'
@@ -44,6 +44,7 @@ import {
   memberMatchesQuery,
   memberSearchPlan,
 } from './member-search-rules.ts'
+import '../account/account-menu.css'
 
 type GroupNameDraft = { groupId: string; sourceName: string; value: string }
 type GroupIconDraft = {

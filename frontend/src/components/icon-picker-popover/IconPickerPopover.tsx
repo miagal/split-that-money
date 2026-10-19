@@ -13,6 +13,7 @@ import {
   popoverPointerAction,
   popoverPosition,
 } from './icon-picker-popover-rules.ts'
+import './icon-picker-popover.css'
 
 type IconPickerPopoverProps = {
   open: boolean

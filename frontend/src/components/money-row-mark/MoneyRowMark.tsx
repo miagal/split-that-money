@@ -1,7 +1,8 @@
 // Renders a money-list category circle with an optional outbox sync badge overlay.
 import { TriangleAlert, Upload } from 'lucide-react'
 import type { ReactNode } from 'react'
-import type { OutboxSyncStatus } from '../features/sync/pending-marks.ts'
+import type { OutboxSyncStatus } from '../../features/sync/pending-marks.ts'
+import './MoneyRowMark.css'
 
 type MoneyRowMarkProps = {
   children: ReactNode

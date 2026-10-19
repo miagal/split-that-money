@@ -16,8 +16,8 @@ import {
 } from 'lucide-react'
 import type { ExpenseDto, SettlementDto } from '../../api/contracts.ts'
 import { useAuth, useSyncActions, useSyncStatus } from '../../app/providers.tsx'
-import { ConfirmDialog } from '../../components/ConfirmDialog.tsx'
-import { MoneyRowMark } from '../../components/MoneyRowMark.tsx'
+import { ConfirmDialog } from '../../components/dialog/ConfirmDialog.tsx'
+import { MoneyRowMark } from '../../components/money-row-mark/MoneyRowMark.tsx'
 import { expenseIconComponent } from '../../lib/icons.ts'
 import { formatMoney } from '../../lib/money.ts'
 import { compactNames } from '../../lib/names.ts'
@@ -47,6 +47,7 @@ import {
   sortExpensesForList,
 } from './expense-list-rules.ts'
 import { useSwipeReveal } from './swipe-reveal.ts'
+import './swipe-reveal.css'
 
 const expenseIcons: Record<string, LucideIcon> = {
   UtensilsCrossed,

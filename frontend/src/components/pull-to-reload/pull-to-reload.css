@@ -1,0 +1,30 @@
+/* Shows the thin pull-progress bar over the authenticated scroll region. */
+
+.pull-to-reload {
+  position: relative;
+}
+
+.pull-to-reload-indicator {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: rgb(var(--color-accent));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease-out;
+}
+
+.pull-to-reload-indicator--pulling,
+.pull-to-reload-indicator--ready {
+  opacity: 1;
+}
+
+.pull-to-reload-indicator--ready {
+  height: 5px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pull-to-reload-indicator {
+    transition: none;
+  }
+}

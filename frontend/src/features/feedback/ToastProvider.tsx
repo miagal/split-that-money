@@ -25,6 +25,7 @@ import {
   type ToastItem,
   type ToastKind,
 } from './toast-rules.ts'
+import './toast.css'
 
 // 44px tap target; the ring sits tight around the 18px X.
 const TIMER_RING_SIZE = 44
