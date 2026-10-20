@@ -152,22 +152,3 @@ export function versionFooterLine(
     return frontend.version
   return `fe: ${frontend.version} / be: ${backend.version}`
 }
-
-/**
- * Reports whether the account menu should offer a live-shell app update.
- *
- * Stored public config does not count. A missing live identity stays hidden.
- *
- * @param frontend - Identity baked into the running bundle.
- * @param liveBackend - Identity from a successful live public-config read, or null.
- * @returns True when the live backend identity differs from the running bundle.
- */
-export function appUpdateAvailable(
-  frontend: AppIdentity,
-  liveBackend: AppIdentity | null,
-): boolean {
-  if (!liveBackend) return false
-  return (
-    frontend.version !== liveBackend.version || frontend.git !== liveBackend.git
-  )
-}

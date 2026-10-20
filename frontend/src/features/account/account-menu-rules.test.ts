@@ -2,7 +2,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
-  appUpdateAvailable,
   backendIdentity,
   frontendIdentity,
   shouldCloseAccountMenu,
@@ -165,47 +164,6 @@ test('hides the footer when backend identity is unknown', () => {
   assert.equal(
     versionFooterLine({ version: 'v1.2.3', git: 'abc1234' }, null),
     null,
-  )
-})
-
-test('hides the app update when live backend identity is unknown', () => {
-  assert.equal(
-    appUpdateAvailable({ version: 'v1.2.3', git: 'abc1234' }, null),
-    false,
-  )
-})
-
-test('hides the app update when live backend identity matches the bundle', () => {
-  assert.equal(
-    appUpdateAvailable(
-      { version: 'v1.2.3', git: 'abc1234' },
-      { version: 'v1.2.3', git: 'abc1234' },
-    ),
-    false,
-  )
-  assert.equal(
-    appUpdateAvailable(
-      { version: 'lcl-cntr', git: '' },
-      { version: 'lcl-cntr', git: '' },
-    ),
-    false,
-  )
-})
-
-test('shows the app update when live version or git differs', () => {
-  assert.equal(
-    appUpdateAvailable(
-      { version: 'v1.2.3', git: 'abc1234' },
-      { version: 'v1.2.4', git: 'abc1234' },
-    ),
-    true,
-  )
-  assert.equal(
-    appUpdateAvailable(
-      { version: 'v1.2.3', git: 'aaa1111' },
-      { version: 'v1.2.3', git: 'bbb2222' },
-    ),
-    true,
   )
 })
 

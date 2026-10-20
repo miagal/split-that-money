@@ -59,10 +59,6 @@ function publicConfigHarness(options: {
   ).outputText
   const exports: {
     usePublicConfig?: () => PublicConfigDto | null
-    usePublicConfigState?: () => {
-      config: PublicConfigDto | null
-      live: PublicConfigDto | null
-    }
   } = {}
   runInNewContext(compiled, {
     exports,
@@ -83,13 +79,6 @@ function publicConfigHarness(options: {
     read(): PublicConfigDto | null {
       stateIndex = 0
       return exports.usePublicConfig!()
-    },
-    readState(): {
-      config: PublicConfigDto | null
-      live: PublicConfigDto | null
-    } {
-      stateIndex = 0
-      return exports.usePublicConfigState!()
     },
     flushEffects() {
       effects.splice(0).forEach((effect) => effect())
@@ -121,31 +110,4 @@ test('usePublicConfig keeps stored config when the live read fails', async () =>
     liveError: new TypeError('Failed to fetch'),
   })
   assert.deepEqual(await afterLive(hook), stored)
-})
-
-/** Lets the live public-config promise settle and returns the full hook state. */
-async function afterLiveState(
-  hook: HookHarness,
-): Promise<{ config: PublicConfigDto | null; live: PublicConfigDto | null }> {
-  hook.readState()
-  hook.flushEffects()
-  for (let i = 0; i < 8; i += 1) await Promise.resolve()
-  return hook.readState()
-}
-
-test('usePublicConfigState keeps live null when the live read fails', async () => {
-  const hook = publicConfigHarness({
-    stored,
-    liveError: new TypeError('Failed to fetch'),
-  })
-  const state = await afterLiveState(hook)
-  assert.deepEqual(state.config, stored)
-  assert.equal(state.live, null)
-})
-
-test('usePublicConfigState sets live after a successful read', async () => {
-  const hook = publicConfigHarness({ stored, live })
-  const state = await afterLiveState(hook)
-  assert.deepEqual(state.live, live)
-  assert.deepEqual(state.config, live)
 })

@@ -118,7 +118,7 @@ class Settings(BaseSettings):
     SESSION_COOKIE_SAMESITE: str = os.getenv("SESSION_COOKIE_SAMESITE", "Lax")
     # Days a session cookie remains valid; converted to seconds in settings.py
     SESSION_COOKIE_AGE_DAYS: int = _get_int("SESSION_COOKIE_AGE_DAYS", "30")
-    # Seconds pull-to-reload and Update app wait before using the cached shell
+    # Seconds pull-to-reload waits before using the cached shell
     SHELL_NETWORK_TIMEOUT_SECONDS: int = _get_int("SHELL_NETWORK_TIMEOUT_SECONDS", "3")
     # Seconds one GUI sync request waits before aborting a dead server
     SYNC_REQUEST_TIMEOUT_SECONDS: int = _get_int("SYNC_REQUEST_TIMEOUT_SECONDS", "8")

@@ -13,23 +13,6 @@
   background-color: rgb(var(--color-border));
 }
 
-.account-update-badge {
-  color: rgb(var(--color-chart-4));
-}
-
-.account-update-badge-ping {
-  background-color: rgb(var(--color-chart-4));
-  animation: account-update-ping 1.25s cubic-bezier(0, 0, 0.2, 1) infinite;
-}
-
-@keyframes account-update-ping {
-  75%,
-  100% {
-    transform: scale(2.2);
-    opacity: 0;
-  }
-}
-
 @keyframes account-menu-email-marquee {
   from {
     transform: translateX(0);
@@ -57,10 +40,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .account-menu-email-marquee {
-    animation: none;
-  }
-
-  .account-update-badge-ping {
     animation: none;
   }
 }

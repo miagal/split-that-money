@@ -3,19 +3,14 @@ import { useEffect, useState } from 'react'
 import type { PublicConfigDto } from '../../api/contracts.ts'
 import { getPublicConfig, readStoredPublicConfig } from './auth-api.ts'
 
-export type PublicConfigState = {
-  config: PublicConfigDto | null
-  live: PublicConfigDto | null
-}
-
 /**
- * Returns stored public config immediately and tracks a successful live read separately.
+ * Returns cached public config on the first render and replaces it after a live read.
  *
- * A failed or hanging live read leaves `live` null and `config` on the stored copy.
+ * A failed or hanging live read leaves the stored copy in place.
  *
- * @returns `config` as live-or-stored, and `live` only after this mount's fetch succeeds.
+ * @returns The stored or live public configuration, or null when neither exists.
  */
-export function usePublicConfigState(): PublicConfigState {
+export function usePublicConfig(): PublicConfigDto | null {
   const [stored] = useState(readStoredPublicConfig)
   const [live, setLive] = useState<PublicConfigDto | null>(null)
   useEffect(() => {
@@ -29,16 +24,5 @@ export function usePublicConfigState(): PublicConfigState {
       active = false
     }
   }, [])
-  return { config: live ?? stored, live }
-}
-
-/**
- * Returns cached public config on the first render and replaces it after a live read.
- *
- * A failed or hanging live read leaves the stored copy in place.
- *
- * @returns The stored or live public configuration, or null when neither exists.
- */
-export function usePublicConfig(): PublicConfigDto | null {
-  return usePublicConfigState().config
+  return live ?? stored
 }
